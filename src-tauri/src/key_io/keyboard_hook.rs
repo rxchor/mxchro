@@ -88,7 +88,11 @@ impl KeyboardHook {
                             },
                             Mode::ONCE => {
                                 let mr = macros_read.get(&macro_struct.trigger_key.0).unwrap();
-                                (mr.action)()
+                                let action = mr.action.clone();
+                                thread::spawn(move || {
+                                    (action)();
+                                });
+                                
                             }
                         }
                     }
