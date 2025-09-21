@@ -12,16 +12,20 @@ export default function App() {
     return(
       <SidebarProvider defaultOpen={cookies.sidebar_state === true}>
         <AppSidebar />
-        <SidebarTrigger />
-        <main>
-          <BrowserRouter>
-            <Routes>
-                  {navBarItems.map((item) => (
-                    <Route key={item.title} path={item.url} element={<item.component />} />
-                  ))}
-            </Routes>
-          </BrowserRouter>
-        </main>
+        <div className='app-content'>
+          <header>
+            <SidebarTrigger />
+          </header>
+          <main>
+            <BrowserRouter>
+              <Routes>
+                    {navBarItems.map((item) => (
+                      <Route key={item.title} path={item.url} element={<item.component />} />
+                    ))}
+              </Routes>
+            </BrowserRouter>
+          </main>
+        </div>
       </SidebarProvider>
     );
 }
