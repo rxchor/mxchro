@@ -24,4 +24,4 @@ impl Hash for Macro {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.trigger_key.0.hash(state);
     }
-}
+}  
