@@ -10,11 +10,11 @@ export default function App() {
     const [cookies] = useCookies(["sidebar_state"]);
 
     return(
-      <SidebarProvider defaultOpen={cookies.sidebar_state === true}>
+      <SidebarProvider defaultOpen={cookies.sidebar_state}>
         <AppSidebar />
         <div className='app-content'>
-          <header>
-            <SidebarTrigger />
+          <header className='pt-1 h-8'>
+            {!cookies.sidebar_state && <SidebarTrigger />}  
           </header>
           <main>
             <BrowserRouter>

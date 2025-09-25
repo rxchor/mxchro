@@ -1,9 +1,7 @@
 // Menu items.
-import { AboutPage } from "@/pages/AboutPage";
-import { ContactPage } from "@/pages/ContactPage";
 import { HomePage } from "@/pages/HomePage";
 import MacroForm from "@/pages/MacroForm";
-import { Home, Inbox, Settings, icons } from "lucide-react"
+import { Home, icons } from "lucide-react"
 import React from "react";
 
 export interface SideBarItem {
@@ -11,33 +9,20 @@ export interface SideBarItem {
     url: string;
     icon: React.ComponentType<any>;
     component: React.ComponentType<any>;
-
 }
 
-const items: SideBarItem[] = [
+let items: SideBarItem[] = [
   {
     title: "Home",
     url: "/",
     icon: Home,
-    component: HomePage
+    component: HomePage,
   },
-  {
-    title: "Contact",
-    url: "/contact",
-    icon: Inbox,
-    component: ContactPage
-  },
-  {
-    title: "About",
-    url: "/about",
-    icon: Settings,
-    component: AboutPage
-  }, 
   {
     title: "Create Macro",
     url: "/create-macro",
     icon: icons.Plus,
-    component: MacroForm
+    component: MacroForm,
   }
 ]
 
