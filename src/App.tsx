@@ -2,7 +2,7 @@ import { BrowserRouter, Route, Routes } from 'react-router-dom';
 import './App.css';
 import { SideBarItem, getSideBarItems } from './services/SideBarItemsService';
 import { SidebarProvider, SidebarTrigger } from './components/ui/sidebar';
-import { AppSidebar } from './components/side_bar/AppSideBar';
+import { AppSidebar } from './components/AppSideBar';
 import { useCookies } from 'react-cookie'
 
 export default function App() {

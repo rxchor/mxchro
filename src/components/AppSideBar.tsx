@@ -9,7 +9,7 @@ import {
   SidebarMenuItem,
   SidebarTrigger,
 } from "@/components/ui/sidebar"
-import { getSideBarItems, SideBarItem } from "../../services/SideBarItemsService";
+import { getSideBarItems, SideBarItem } from "../services/SideBarItemsService";
 import { useCookies } from "react-cookie";
 
 // Menu items.

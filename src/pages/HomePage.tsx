@@ -1,4 +1,6 @@
+import { Button } from "@/components/ui/button";
 import { invoke } from "@tauri-apps/api/core";
+import { Loader2Icon } from "lucide-react";
 import { useState } from "react";
 
 export function HomePage() {
@@ -8,21 +10,21 @@ export function HomePage() {
 
     function handleClick() {
         setDisabled(true);
-        invoke('macro_test');
+        invoke<void>('macro_test');
         setTimeout(() => setDisabled(false), 3000);
     }
 
     return (
-        <div>
+        <div className="flex flex-col gap-4 items-center">
             <h1 className='font-semibold text-3xl'>Home Page</h1>
-            <button 
+            <Button 
                 disabled={disabled} 
                 onClick={handleClick} 
-                className={`mt-4 px-4 py-2 bg-blue-500 text-white rounded 
-                    ${disabled ? 'opacity-50 cursor-not-allowed' : 'hover:bg-blue-600 cursor-pointer'}`}
+                className="cursor-pointer"
             >
+                {disabled && <Loader2Icon className="animate-spin" />}
                 {disabled ? 'Processing...' : 'Click me to see magic... heh...'}
-            </button>
+            </Button>
         </div>
     );
 }
