@@ -1,4 +1,4 @@
 export interface KeyEvent {
-    key: string,
-    sleepBetween?: number,
+    key?: string,
+    sleep?: number,
 }

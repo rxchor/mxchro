@@ -20,7 +20,6 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Button } from "@/components/ui/button";
-import { invoke } from "@tauri-apps/api/core";
 import { useEffect, useState } from "react";
 import {
   Combobox,
@@ -34,8 +33,9 @@ import {
   ComboboxData,
 } from "@/components/ui/shadcn-io/combobox";
 import { Checkbox } from "@/components/ui/checkbox";
+import { getKeys, formattedKey } from "@/services/KeyListService";
 
-const formSchema = z.object({
+export const macroFormSchema = z.object({
   triggerKey: z
     .string()
     .min(1, { message: "The macro must have a trigger key" }),
@@ -44,27 +44,23 @@ const formSchema = z.object({
   ignoreInjectedKeys: z.boolean(),
 });
 
-export default function MacroForm() {
+type MacroFormProps = {
+  onSubmit: (values: z.infer<typeof macroFormSchema>) => void;
+};
+
+export default function MacroForm({ onSubmit }: MacroFormProps) {
   const [cbKeys, setCbKeys] = useState<ComboboxData[]>([]);
 
   useEffect(() => {
-    async function fetchKeys() {
-      console.log("getting the keys from the backend...");
-      const stringList = await invoke<string[]>("get_vk_string_values");
+    function fetchKeys() {
+      const stringList: string[] = getKeys();
       setCbKeys(
         stringList.map((key) => {
           return {
-            label: getLabel(key),
+            label: formattedKey(key),
             value: key,
           };
         })
-      );
-    }
-
-    function getLabel(key: string) {
-      return (key.charAt(0).toUpperCase() + key.slice(1).toLowerCase()).replace(
-        "_",
-        " "
       );
     }
 
@@ -73,8 +69,8 @@ export default function MacroForm() {
 
   /* FORM RELATED STUFF */
   const modes = Object.values(Mode);
-  const form = useForm<z.infer<typeof formSchema>>({
-    resolver: zodResolver(formSchema),
+  const form = useForm<z.infer<typeof macroFormSchema>>({
+    resolver: zodResolver(macroFormSchema),
     defaultValues: {
       triggerKey: "",
       mode: "",
@@ -83,11 +79,6 @@ export default function MacroForm() {
     },
   });
 
-  /* SUBMIT FUNCTION */
-  function onSubmit(values: z.infer<typeof formSchema>) {
-    console.log(values);
-  }
-
   // class names for the divs in case it is needed:
   // className="col-span-2 grid grid-cols-1 gap-2"
 
@@ -95,7 +86,7 @@ export default function MacroForm() {
     <Form {...form}>
       <form
         onSubmit={form.handleSubmit(onSubmit)}
-        className="grid grid-cols-2 items-center gap-8 bg-primary-foreground p-5 rounded-md"
+        className="grid grid-cols-2 row-span-1 items-center gap-8 bg-primary-foreground p-5 rounded-md h-80"
       >
         <FormField
           control={form.control}

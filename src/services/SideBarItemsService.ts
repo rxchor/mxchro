@@ -1,6 +1,6 @@
 // Menu items.
 import { HomePage } from "@/pages/HomePage";
-import MacroForm from "@/pages/MacroForm";
+import { CreateMacroPage } from "@/pages/create_macro/CreateMacroPage";
 import { Home, icons } from "lucide-react"
 import React from "react";
 
@@ -22,7 +22,7 @@ let items: SideBarItem[] = [
     title: "Create Macro",
     url: "/create-macro",
     icon: icons.Plus,
-    component: MacroForm,
+    component: CreateMacroPage,
   }
 ]
 
