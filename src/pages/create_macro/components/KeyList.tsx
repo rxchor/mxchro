@@ -56,7 +56,7 @@ function SortableItem({ id, action }: Item) {
   );
 }
 
-export default function MacroActions() {
+export default function MacroList() {
   const [keys] = useState<string[]>(getKeys());
 
   const [items, setItems] = useState<Item[]>(
@@ -135,7 +135,7 @@ export default function MacroActions() {
           See the console!
         </Button>
       </div>
-      <div className="row-span-1 rounded-md bg-primary-foreground p-5 flex flex-col justify-between gap-5 h-full w-full"></div>
+      
     </>
   );
 }

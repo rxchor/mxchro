@@ -1,6 +1,7 @@
 import z from "zod";
-import MacroForm, { macroFormSchema } from "./MacroForm";
-import MacroActions from "./MacroActions";
+import MacroForm, { macroFormSchema } from "./components/MacroForm";
+import KeyList from "./components/KeyList";
+import AddKeyForm from "./components/AddKeyForm";
 
 export function CreateMacroPage() {
   /* SUBMIT FUNCTION */
@@ -11,7 +12,8 @@ export function CreateMacroPage() {
   return (
     <div className="grid grid-cols-2 grid-rows-[auto_1fr] gap-8 w-full h-[70vh] m-20">
       <MacroForm onSubmit={onSubmit} />
-      <MacroActions />
+      <KeyList />
+      <AddKeyForm />
     </div>
   );
 }
