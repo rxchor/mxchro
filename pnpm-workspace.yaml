@@ -1,7 +1,5 @@
-minimumReleaseAge: 1440 # 24 horas desde release para instalar
+minimumReleaseAge: 1440
 
-# Para añadir excepciones seria lo siguiente:
-# 
-# minimumReleaseAgeExclude:
-#   - react
-#   - react-dom
+onlyBuiltDependencies:
+  - '@tailwindcss/oxide'
+  - esbuild
