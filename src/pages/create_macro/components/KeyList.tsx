@@ -19,11 +19,10 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { CSSProperties, useState } from "react";
 import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { KeyEvent } from "@/model/KeyEvent";
-import { getKeys, formattedKey } from "@/services/KeyListService";
+import { formattedKey } from "@/services/KeyListService";
 
 type Item = { id: string; action: KeyEvent };
 
@@ -57,20 +56,7 @@ function SortableItem({ id, action }: Item) {
 }
 
 export default function MacroList() {
-  const [keys] = useState<string[]>(getKeys());
-
-  const [items, setItems] = useState<Item[]>(
-    Array.from({ length: 5 }, (_, i) => ({
-      id: `${i + 1}`,
-      action:
-        Math.random() > 0.5
-          ? ({
-              key: keys[Math.floor(Math.random() * keys.length)],
-              sleep: Math.floor(Math.random() * 100),
-            })
-          : ({ sleep: Math.floor(Math.random() * 100) }),
-    }))
-  );
+  const [items, setItems] = useState<Item[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
 
   const sensors = useSensors(
@@ -131,11 +117,13 @@ export default function MacroList() {
           </DragOverlay>
         </DndContext>
 
-        <Button onClick={() => console.log("items", items)}>
-          See the console!
-        </Button>
+        {items.length === 0 && (
+          <div className="flex items-center justify-center text-muted-foreground text-sm">
+            No actions yet. Add one using the form below.
+          </div>
+        )}
       </div>
-      
+
     </>
   );
 }
