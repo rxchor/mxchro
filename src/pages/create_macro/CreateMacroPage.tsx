@@ -1,19 +1,108 @@
-import z from "zod";
-import MacroForm, { macroFormSchema } from "./components/MacroForm";
-import KeyList from "./components/KeyList";
-import AddKeyForm from "./components/AddKeyForm";
+import { useState } from "react";
+import MacroForm, {
+  macroFormSchema,
+  type MacroFormValues,
+} from "./components/MacroForm";
+import ActionsList from "./components/ActionsList";
+import AddActionForm from "./components/AddActionForm";
+import { Button } from "@/components/ui/button";
+import { KeyEvent } from "@/model/KeyEvent";
+import { Mode } from "@/model/Mode";
+import { Macro } from "@/model/Macro";
+import { Save } from "lucide-react";
+
+type ActionItem = { id: string; event: KeyEvent };
+
+const initialConfig: MacroFormValues = {
+  triggerKey: "",
+  mode: "",
+  blockOriginalEvent: true,
+  ignoreInjectedKeys: true,
+};
+
+function newId() {
+  return crypto.randomUUID();
+}
 
 export function CreateMacroPage() {
-  /* SUBMIT FUNCTION */
-  function macroFormSubmit(values: z.infer<typeof macroFormSchema>) {
-    console.log(values);
+  const [config, setConfig] = useState<MacroFormValues>(initialConfig);
+  const [actions, setActions] = useState<ActionItem[]>([]);
+
+  function handleAdd(event: KeyEvent) {
+    setActions((prev) => [...prev, { id: newId(), event }]);
   }
 
+  function handleRemove(id: string) {
+    setActions((prev) => prev.filter((a) => a.id !== id));
+  }
+
+  function handleReorder(newActions: ActionItem[]) {
+    setActions(newActions);
+  }
+
+  function handleSave() {
+    const result = macroFormSchema.safeParse(config);
+    if (!result.success) {
+      console.error("Invalid config:", result.error);
+      return;
+    }
+    const macro: Macro = {
+      triggerKey: result.data.triggerKey,
+      mode: result.data.mode as Mode,
+      actions: actions.map((a) => a.event),
+      blockOriginalKey: result.data.blockOriginalEvent,
+    };
+    console.log("Saving macro:", macro);
+  }
+
+  const isValid = !!config.triggerKey && !!config.mode && actions.length > 0;
+
   return (
-    <div className="grid grid-cols-2 grid-rows-[auto_1fr] gap-8 w-full h-[70vh] m-20">
-      <MacroForm onSubmit={macroFormSubmit} />
-      <KeyList />
-      <AddKeyForm />
+    <div className="w-full max-w-6xl mx-auto p-6 flex flex-col gap-8">
+      <section>
+        <header className="mb-3">
+          <h2 className="text-xl font-semibold">Configuration</h2>
+          <p className="text-sm text-muted-foreground">
+            Set up how the macro triggers and behaves
+          </p>
+        </header>
+        <MacroForm values={config} onChange={setConfig} />
+      </section>
+
+      <section className="grid grid-cols-1 lg:grid-cols-3 gap-6 min-h-[400px]">
+        <div className="lg:col-span-2 flex flex-col">
+          <header className="mb-3">
+            <h2 className="text-xl font-semibold">Actions</h2>
+            <p className="text-sm text-muted-foreground">
+              Drag to reorder the sequence of actions
+            </p>
+          </header>
+          <div className="flex-1">
+            <ActionsList
+              actions={actions}
+              onReorder={handleReorder}
+              onRemove={handleRemove}
+            />
+          </div>
+        </div>
+
+        <div className="flex flex-col">
+          <header className="mb-3">
+            <h2 className="text-xl font-semibold">Add</h2>
+            <p className="text-sm text-muted-foreground">Insert a new action</p>
+          </header>
+          <div className="flex-1">
+            <AddActionForm onAdd={handleAdd} />
+          </div>
+        </div>
+      </section>
+
+      <div className="flex justify-end">
+        <Button onClick={handleSave} disabled={!isValid}>
+          <Save className="size-4" />
+          Save Macro
+        </Button>
+      </div>
     </div>
   );
 }

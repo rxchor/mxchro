@@ -6,21 +6,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-
-import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
-import { z } from "zod";
-import {
-  Form,
-  FormControl,
-  FormDescription,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
-import { Button } from "@/components/ui/button";
-import { useEffect, useState } from "react";
 import {
   Combobox,
   ComboboxContent,
@@ -33,7 +18,10 @@ import {
   ComboboxData,
 } from "@/components/ui/shadcn-io/combobox";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import { getKeys, formattedKey } from "@/services/KeyListService";
+import { useEffect, useState } from "react";
+import { z } from "zod";
 
 export const macroFormSchema = z.object({
   triggerKey: z
@@ -44,151 +32,100 @@ export const macroFormSchema = z.object({
   ignoreInjectedKeys: z.boolean(),
 });
 
-type MacroFormProps = {
-  onSubmit: (values: z.infer<typeof macroFormSchema>) => void;
-};
+export type MacroFormValues = z.infer<typeof macroFormSchema>;
 
-export default function MacroForm({ onSubmit }: MacroFormProps) {
+interface MacroFormProps {
+  values: MacroFormValues;
+  onChange: (values: MacroFormValues) => void;
+}
+
+export default function MacroForm({ values, onChange }: MacroFormProps) {
   const [cbKeys, setCbKeys] = useState<ComboboxData[]>([]);
 
   useEffect(() => {
-    function fetchKeys() {
-      const stringList: string[] = getKeys();
-      setCbKeys(
-        stringList.map((key) => {
-          return {
-            label: formattedKey(key),
-            value: key,
-          };
-        })
-      );
-    }
-
-    fetchKeys();
+    setCbKeys(
+      getKeys().map((key) => ({
+        label: formattedKey(key),
+        value: key,
+      }))
+    );
   }, []);
 
-  /* FORM RELATED STUFF */
   const modes = Object.values(Mode);
-  const form = useForm<z.infer<typeof macroFormSchema>>({
-    resolver: zodResolver(macroFormSchema),
-    defaultValues: {
-      triggerKey: "",
-      mode: "",
-      blockOriginalEvent: true,
-      ignoreInjectedKeys: true,
-    },
-  });
 
-  // class names for the divs in case it is needed:
-  // className="col-span-2 grid grid-cols-1 gap-2"
+  function update<K extends keyof MacroFormValues>(
+    key: K,
+    value: MacroFormValues[K]
+  ) {
+    onChange({ ...values, [key]: value });
+  }
 
   return (
-    <Form {...form}>
-      <form
-        onSubmit={form.handleSubmit(onSubmit)}
-        className="grid grid-cols-2 row-span-1 items-center gap-8 bg-primary-foreground p-5 rounded-md h-80"
-      >
-        <FormField
-          control={form.control}
-          name="triggerKey"
-          render={({ field, fieldState }) => (
-            <FormItem>
-              <FormLabel>Trigger Key</FormLabel>
-              <FormControl>
-                <Combobox
-                  value={field.value}
-                  onValueChange={field.onChange}
-                  data={cbKeys}
-                  type="key"
-                >
-                  <ComboboxTrigger
-                    placeholder="Select a key"
-                    aria-invalid={fieldState.invalid}
-                  />
-                  <ComboboxContent className="h-[100%]">
-                    <ComboboxInput placeholder="Search key" />
-                    <ComboboxEmpty>No key found</ComboboxEmpty>
-                    <ComboboxList>
-                      <ComboboxGroup>
-                        {cbKeys.map((key) => (
-                          <ComboboxItem key={key.value} value={key.value}>
-                            {key.label}
-                          </ComboboxItem>
-                        ))}
-                      </ComboboxGroup>
-                    </ComboboxList>
-                  </ComboboxContent>
-                </Combobox>
-              </FormControl>
-              <FormDescription>Key that triggers the action</FormDescription>
-              <FormMessage />
-            </FormItem>
-          )}
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 bg-primary-foreground p-5 rounded-md">
+      <div className="flex flex-col gap-2">
+        <Label>Trigger Key</Label>
+        <Combobox
+          value={values.triggerKey}
+          onValueChange={(v) => update("triggerKey", v)}
+          data={cbKeys}
+          type="key"
+        >
+          <ComboboxTrigger placeholder="Select a key" />
+          <ComboboxContent className="h-[100%]">
+            <ComboboxInput placeholder="Search key" />
+            <ComboboxEmpty>No key found</ComboboxEmpty>
+            <ComboboxList>
+              <ComboboxGroup>
+                {cbKeys.map((key) => (
+                  <ComboboxItem key={key.value} value={key.value}>
+                    {key.label}
+                  </ComboboxItem>
+                ))}
+              </ComboboxGroup>
+            </ComboboxList>
+          </ComboboxContent>
+        </Combobox>
+        <p className="text-xs text-muted-foreground">
+          Key that triggers the macro
+        </p>
+      </div>
+
+      <div className="flex flex-col gap-2">
+        <Label>Mode</Label>
+        <Select value={values.mode} onValueChange={(v) => update("mode", v)}>
+          <SelectTrigger className="w-full">
+            <SelectValue placeholder="Select a mode" />
+          </SelectTrigger>
+          <SelectContent>
+            {modes.map((mode) => (
+              <SelectItem key={mode} value={mode.toString()}>
+                {mode.charAt(0).toUpperCase() + mode.slice(1).toLowerCase()}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <p className="text-xs text-muted-foreground">
+          How the macro executes
+        </p>
+      </div>
+
+      <div className="flex items-center gap-2 lg:pt-6">
+        <Checkbox
+          id="blockOriginalEvent"
+          checked={values.blockOriginalEvent}
+          onCheckedChange={(c) => update("blockOriginalEvent", !!c)}
         />
-        <FormField
-          control={form.control}
-          name="mode"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Mode</FormLabel>
-              <Select onValueChange={field.onChange} defaultValue={field.value}>
-                <FormControl>
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select a mode" />
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent>
-                  {modes.map((mode) => (
-                    <SelectItem key={mode} value={mode.toString()}>
-                      {mode.charAt(0).toUpperCase() +
-                        mode.slice(1).toLowerCase()}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <FormDescription>
-                The way the macro is going to execute
-              </FormDescription>
-              <FormMessage />
-            </FormItem>
-          )}
+        <Label htmlFor="blockOriginalEvent">Block original event</Label>
+      </div>
+
+      <div className="flex items-center gap-2 lg:pt-6">
+        <Checkbox
+          id="ignoreInjectedKeys"
+          checked={values.ignoreInjectedKeys}
+          onCheckedChange={(c) => update("ignoreInjectedKeys", !!c)}
         />
-        <FormField
-          control={form.control}
-          name="blockOriginalEvent"
-          render={({ field }) => (
-            <FormItem className="flex flex-row items-center gap-2">
-              <FormControl>
-                <Checkbox
-                  checked={field.value}
-                  onCheckedChange={field.onChange}
-                />
-              </FormControl>
-              <FormLabel>Block original event</FormLabel>
-            </FormItem>
-          )}
-        />
-        <FormField
-          control={form.control}
-          name="ignoreInjectedKeys"
-          render={({ field }) => (
-            <FormItem className="flex flex-row items-center gap-2">
-              <FormControl>
-                <Checkbox
-                  checked={field.value}
-                  onCheckedChange={field.onChange}
-                />
-              </FormControl>
-              <FormLabel>Ignore injected keys</FormLabel>
-            </FormItem>
-          )}
-        />
-        <div className="col-span-2 flex justify-center w-full">
-          <Button className="p-4 cursor-pointer" type="submit">
-            Submit
-          </Button>
-        </div>
-      </form>
-    </Form>
+        <Label htmlFor="ignoreInjectedKeys">Ignore injected keys</Label>
+      </div>
+    </div>
   );
 }

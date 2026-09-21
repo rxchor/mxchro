@@ -1,14 +1,14 @@
 // Menu items.
 import { HomePage } from "@/pages/home/HomePage";
 import { CreateMacroPage } from "@/pages/create_macro/CreateMacroPage";
-import { Home, icons } from "lucide-react"
+import { Home, icons } from "lucide-react";
 import React from "react";
 
 export interface SideBarItem {
-    title: string;
-    url: string;
-    icon: React.ComponentType<any>;
-    component: React.ComponentType<any>;
+  title: string;
+  url: string;
+  icon: React.ComponentType<any>;
+  component: React.ComponentType<any>;
 }
 
 let items: SideBarItem[] = [
@@ -23,9 +23,9 @@ let items: SideBarItem[] = [
     url: "/create-macro",
     icon: icons.Plus,
     component: CreateMacroPage,
-  }
-]
+  },
+];
 
 export function getSideBarItems(): SideBarItem[] {
-    return items;
+  return items;
 }
