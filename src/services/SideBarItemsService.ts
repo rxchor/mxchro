@@ -1,5 +1,5 @@
 // Menu items.
-import { HomePage } from "@/pages/HomePage";
+import { HomePage } from "@/pages/home/HomePage";
 import { CreateMacroPage } from "@/pages/create_macro/CreateMacroPage";
 import { Home, icons } from "lucide-react"
 import React from "react";
