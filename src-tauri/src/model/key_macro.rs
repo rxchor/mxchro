@@ -63,7 +63,7 @@ impl Macro {
     }
 
     pub fn to_summary(&self, mapper: &KeyMapper) -> Option<MacroSummaryDto> {
-        let trigger_key_str = mapper.vk_to_string(&self.trigger_key.0)?;
+        let trigger_key_str = mapper.vk_to_string(&self.trigger_key.0)?.to_string();
         Some(MacroSummaryDto {
             trigger_key: trigger_key_str,
             mode: self.mode.clone(),

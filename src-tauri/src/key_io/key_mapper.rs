@@ -120,24 +120,12 @@ impl KeyMapper {
         }
     }
 
-    pub fn vk_to_string(&self, vk: &u16) -> Option<String> {
-        let string = self.vk_to_str.get(vk);
-
-        if string.is_none() {
-            return None;
-        }
-
-        return Some(string.unwrap().clone());
+    pub fn vk_to_string(&self, vk: &u16) -> Option<&str> {
+        self.vk_to_str.get(vk).map(|s| s.as_str())
     }
 
-    pub fn string_to_vk(&self, string: &String) -> Option<u16> {
-        let vk_code = self.str_to_vk.get(string);
-
-        if vk_code.is_none() {
-            return None;
-        }
-
-        return Some(vk_code.unwrap().clone());
+    pub fn string_to_vk(&self, string: &str) -> Option<u16> {
+        self.str_to_vk.get(string).copied()
     }
 
     pub fn strings_vec(&self) -> Vec<String> {
@@ -157,19 +145,19 @@ mod tests {
     #[test]
     fn test_vk_to_string_basic_keys() {
         let mapper = KeyMapper::instance();
-        assert_eq!(mapper.vk_to_string(&VK_A.0), Some("A".to_string())); // 'A'
-        assert_eq!(mapper.vk_to_string(&VK_0.0), Some("0".to_string())); // '0'
-        assert_eq!(mapper.vk_to_string(&VK_RETURN.0), Some("enter".to_string()));
-        assert_eq!(mapper.vk_to_string(&VK_LBUTTON.0), Some("mouse_left".to_string()));
+        assert_eq!(mapper.vk_to_string(&VK_A.0), Some("A"));
+        assert_eq!(mapper.vk_to_string(&VK_0.0), Some("0"));
+        assert_eq!(mapper.vk_to_string(&VK_RETURN.0), Some("enter"));
+        assert_eq!(mapper.vk_to_string(&VK_LBUTTON.0), Some("mouse_left"));
     }
 
     #[test]
     fn test_string_to_vk_basic_keys() {
         let mapper = KeyMapper::instance();
-        assert_eq!(mapper.string_to_vk(&"A".to_string()), Some(VK_A.0));
-        assert_eq!(mapper.string_to_vk(&"0".to_string()), Some(VK_0.0));
-        assert_eq!(mapper.string_to_vk(&"enter".to_string()), Some(VK_RETURN.0));
-        assert_eq!(mapper.string_to_vk(&"mouse_left".to_string()), Some(VK_LBUTTON.0));
+        assert_eq!(mapper.string_to_vk("A"), Some(VK_A.0));
+        assert_eq!(mapper.string_to_vk("0"), Some(VK_0.0));
+        assert_eq!(mapper.string_to_vk("enter"), Some(VK_RETURN.0));
+        assert_eq!(mapper.string_to_vk("mouse_left"), Some(VK_LBUTTON.0));
     }
 
     #[test]
@@ -181,7 +169,7 @@ mod tests {
     #[test]
     fn test_string_to_vk_not_found() {
         let mapper = KeyMapper::instance();
-        assert_eq!(mapper.string_to_vk(&"not_a_key".to_string()), None);
+        assert_eq!(mapper.string_to_vk("not_a_key"), None);
     }
 
     #[test]
@@ -189,7 +177,7 @@ mod tests {
         let mapper = KeyMapper::instance();
         let keys = vec!["A", "enter", "mouse_left", "F12", "numpad5"];
         for key in keys {
-            let vk = mapper.string_to_vk(&key.to_string()).unwrap();
+            let vk = mapper.string_to_vk(key).unwrap();
             let key_back = mapper.vk_to_string(&vk).unwrap();
             assert_eq!(key, key_back);
         }
