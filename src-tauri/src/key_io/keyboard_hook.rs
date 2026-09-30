@@ -41,20 +41,6 @@ impl KeyboardHook {
                     }
                 }
             });
-
-            thread::spawn(move || {
-                loop {
-                    {
-                        let macros_read = MACRO_MAP.read().unwrap();
-                        for macro_struct in macros_read.values() {
-                            if macro_struct.repeat {
-                                (macro_struct.action)();
-                            }                    
-                        }
-                    }
-                    std::thread::sleep(std::time::Duration::from_millis(10));
-                }
-            });
         });
     }
 
@@ -70,6 +56,10 @@ impl KeyboardHook {
             let action_to_run = {
                 let macros_read = MACRO_MAP.read().unwrap();
                 if let Some(macro_struct) = macros_read.get(&vk) {
+                    if !macro_struct.enabled {
+                        return unsafe { CallNextHookEx(None, n_code, w_param, l_param) };
+                    }
+                    
                     if (kb_struct.flags.0 & LLKHF_INJECTED.0) != 0 && macro_struct.ignore_injected_keys {
                         return unsafe { CallNextHookEx(None, n_code, w_param, l_param) };
                     }
@@ -98,23 +88,50 @@ impl KeyboardHook {
             let is_key_up = w_param.0 as u32 == WM_KEYUP || w_param.0 as u32 == WM_SYSKEYUP;
             
             if is_key_down || is_key_up {
-                let mut macros_write = MACRO_MAP.write().unwrap();
-                if let Some(m) = macros_write.get_mut(&vk) {
+                let repeat_state_clone = {
+                    let macros_read = MACRO_MAP.read().unwrap();
+                    if let Some(m) = macros_read.get(&vk) {
+                        if !m.enabled {
+                            return unsafe { CallNextHookEx(None, n_code, w_param, l_param) };
+                        }
+                        
+                        if is_key_down && m.mode == Mode::ONCE {
+                            None
+                        } else {
+                            Some((m.mode.clone(), m.repeat_state.clone()))
+                        }
+                    } else {
+                        None
+                    }
+                };
+                
+                if let Some((mode, repeat_state)) = repeat_state_clone {
                     if is_key_down {
-                        match m.mode {
-                            Mode::HOLD => m.repeat = true,
-                            Mode::TOGGLE => m.repeat = !m.repeat,
+                        match mode {
+                            Mode::HOLD => {
+                                let mut state = repeat_state.0.lock().unwrap();
+                                state.active = true;
+                                repeat_state.1.notify_one();
+                            },
+                            Mode::TOGGLE => {
+                                let mut state = repeat_state.0.lock().unwrap();
+                                state.active = !state.active;
+                                if state.active {
+                                    repeat_state.1.notify_one();
+                                }
+                            },
                             Mode::ONCE => {}
                         }
-                    } else if is_key_up && m.mode == Mode::HOLD {
-                        m.repeat = false;
+                    } else if is_key_up && mode == Mode::HOLD {
+                        let mut state = repeat_state.0.lock().unwrap();
+                        state.active = false;
                     }
                 }
             }
             
             let should_block = {
                 let macros_read = MACRO_MAP.read().unwrap();
-                macros_read.get(&vk).map_or(false, |m| m.block_original_event)
+                macros_read.get(&vk).map_or(false, |m| m.enabled && m.block_original_event)
             };
             
             if should_block {
@@ -128,7 +145,11 @@ impl KeyboardHook {
     pub fn add_macro(key_macro: Macro) -> bool {
         let mut macros_write = MACRO_MAP.write().unwrap();
         if !macros_write.contains_key(&key_macro.trigger_key.0) {
-            macros_write.insert(key_macro.trigger_key.0, key_macro);
+            let mut macro_clone = key_macro;
+            if macro_clone.enabled {
+                macro_clone.spawn_repeat_thread();
+            }
+            macros_write.insert(macro_clone.trigger_key.0, macro_clone);
             return true;
         }
         false
@@ -136,7 +157,32 @@ impl KeyboardHook {
 
     pub fn delete_macro(vk: &VIRTUAL_KEY) -> bool {
         let mut macros_write = MACRO_MAP.write().unwrap();
-        return macros_write.remove(&vk.0).is_some();
+        if let Some(mut m) = macros_write.remove(&vk.0) {
+            m.stop_repeat_thread();
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn enable_macro(vk: &VIRTUAL_KEY) -> bool {
+        let mut macros_write = MACRO_MAP.write().unwrap();
+        if let Some(m) = macros_write.get_mut(&vk.0) {
+            m.enable();
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn disable_macro(vk: &VIRTUAL_KEY) -> bool {
+        let mut macros_write = MACRO_MAP.write().unwrap();
+        if let Some(m) = macros_write.get_mut(&vk.0) {
+            m.disable();
+            true
+        } else {
+            false
+        }
     }
 
     pub fn list_macros() -> Vec<MacroSummaryDto> {

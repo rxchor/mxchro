@@ -16,6 +16,7 @@ pub struct MacroDto {
     pub actions: Vec<KeyEventDto>,
     pub block_original_event: bool,
     pub ignore_injected_keys: bool,
+    pub enabled: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -25,4 +26,5 @@ pub struct MacroSummaryDto {
     pub actions_count: usize,
     pub block_original_event: bool,
     pub ignore_injected_keys: bool,
+    pub enabled: bool,
 }

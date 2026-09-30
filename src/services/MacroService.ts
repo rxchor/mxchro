@@ -8,6 +8,7 @@ export interface MacroSummary {
     actionsCount: number;
     blockOriginalEvent: boolean;
     ignoreInjectedKeys: boolean;
+    enabled: boolean;
 }
 
 interface MacroDto {
@@ -16,6 +17,7 @@ interface MacroDto {
     actions: Array<{ key?: string; sleep?: number; hold?: number }>;
     block_original_event: boolean;
     ignore_injected_keys: boolean;
+    enabled: boolean;
 }
 
 interface MacroSummaryDto {
@@ -24,6 +26,7 @@ interface MacroSummaryDto {
     actions_count: number;
     block_original_event: boolean;
     ignore_injected_keys: boolean;
+    enabled: boolean;
 }
 
 function toSnakeCase(macro: Macro): MacroDto {
@@ -37,6 +40,7 @@ function toSnakeCase(macro: Macro): MacroDto {
         })),
         block_original_event: macro.blockOriginalKey,
         ignore_injected_keys: macro.ignoreInjectedKeys,
+        enabled: macro.enabled,
     };
 }
 
@@ -47,6 +51,7 @@ function fromSnakeCase(dto: MacroSummaryDto): MacroSummary {
         actionsCount: dto.actions_count,
         blockOriginalEvent: dto.block_original_event,
         ignoreInjectedKeys: dto.ignore_injected_keys,
+        enabled: dto.enabled,
     };
 }
 
@@ -57,6 +62,14 @@ export async function addMacro(macro: Macro): Promise<boolean> {
 
 export async function deleteMacro(triggerKey: string): Promise<boolean> {
     return await invoke<boolean>("delete_macro", { triggerKey });
+}
+
+export async function enableMacro(triggerKey: string): Promise<boolean> {
+    return await invoke<boolean>("enable_macro", { triggerKey });
+}
+
+export async function disableMacro(triggerKey: string): Promise<boolean> {
+    return await invoke<boolean>("disable_macro", { triggerKey });
 }
 
 export async function listMacros(): Promise<MacroSummary[]> {

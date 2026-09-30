@@ -30,6 +30,26 @@ fn delete_macro(trigger_key: String) -> bool {
 }
 
 #[tauri::command]
+fn enable_macro(trigger_key: String) -> bool {
+    let mapper = KeyMapper::instance();
+    if let Some(vk) = mapper.string_to_vk(&trigger_key) {
+        let virtual_key = windows::Win32::UI::Input::KeyboardAndMouse::VIRTUAL_KEY(vk);
+        return KeyboardHook::enable_macro(&virtual_key);
+    }
+    false
+}
+
+#[tauri::command]
+fn disable_macro(trigger_key: String) -> bool {
+    let mapper = KeyMapper::instance();
+    if let Some(vk) = mapper.string_to_vk(&trigger_key) {
+        let virtual_key = windows::Win32::UI::Input::KeyboardAndMouse::VIRTUAL_KEY(vk);
+        return KeyboardHook::disable_macro(&virtual_key);
+    }
+    false
+}
+
+#[tauri::command]
 fn list_macros() -> Vec<MacroSummaryDto> {
     return KeyboardHook::list_macros();
 }
@@ -49,6 +69,8 @@ pub fn run() {
             get_vk_string_values,
             add_macro,
             delete_macro,
+            enable_macro,
+            disable_macro,
             list_macros,
             start_hook,
         ])

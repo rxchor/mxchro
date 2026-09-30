@@ -7,4 +7,5 @@ export interface Macro {
     actions: KeyEvent[],
     blockOriginalKey: boolean;
     ignoreInjectedKeys: boolean;
+    enabled: boolean;
 }

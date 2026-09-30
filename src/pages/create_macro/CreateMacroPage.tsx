@@ -19,6 +19,7 @@ const initialConfig: MacroFormValues = {
   mode: "",
   blockOriginalEvent: true,
   ignoreInjectedKeys: true,
+  enabled: true,
 };
 
 function newId() {
@@ -54,6 +55,7 @@ export function CreateMacroPage() {
       actions: actions.map((a) => a.event),
       blockOriginalKey: result.data.blockOriginalEvent,
       ignoreInjectedKeys: result.data.ignoreInjectedKeys,
+      enabled: result.data.enabled,
     };
     setSaving(true);
     try {

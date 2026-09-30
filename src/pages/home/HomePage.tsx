@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
-import { listMacros, deleteMacro, type MacroSummary } from "@/services/MacroService";
+import { listMacros, deleteMacro, enableMacro, disableMacro, type MacroSummary } from "@/services/MacroService";
 import { formattedKey } from "@/services/KeyListService";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Trash2, RefreshCw } from "lucide-react";
+import { Trash2, RefreshCw, Power } from "lucide-react";
 
 export function HomePage() {
   const [macros, setMacros] = useState<MacroSummary[]>([]);
@@ -33,6 +33,24 @@ export function HomePage() {
       }
     } catch (e) {
       console.error("Error deleting macro:", e);
+    }
+  }
+
+  async function handleToggleEnabled(triggerKey: string, currentEnabled: boolean) {
+    try {
+      const success = currentEnabled 
+        ? await disableMacro(triggerKey)
+        : await enableMacro(triggerKey);
+      
+      if (success) {
+        setMacros((prev) => 
+          prev.map((m) => 
+            m.triggerKey === triggerKey ? { ...m, enabled: !currentEnabled } : m
+          )
+        );
+      }
+    } catch (e) {
+      console.error("Error toggling macro:", e);
     }
   }
 
@@ -83,16 +101,29 @@ export function HomePage() {
                       Ignores injected
                     </span>
                   )}
+                  <span className={`text-xs px-2 py-0.5 rounded ${macro.enabled ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                    {macro.enabled ? 'Enabled' : 'Disabled'}
+                  </span>
                 </div>
               </div>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => handleDelete(macro.triggerKey)}
-                className="text-destructive hover:text-destructive"
-              >
-                <Trash2 className="size-4" />
-              </Button>
+              <div className="flex gap-2">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => handleToggleEnabled(macro.triggerKey, macro.enabled)}
+                  className={macro.enabled ? "text-green-600 hover:text-green-700" : "text-red-600 hover:text-red-700"}
+                >
+                  <Power className="size-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => handleDelete(macro.triggerKey)}
+                  className="text-destructive hover:text-destructive"
+                >
+                  <Trash2 className="size-4" />
+                </Button>
+              </div>
             </Card>
           ))}
         </div>

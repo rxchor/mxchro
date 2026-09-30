@@ -30,6 +30,7 @@ export const macroFormSchema = z.object({
   mode: z.string().min(1, { message: "Please select a mode" }),
   blockOriginalEvent: z.boolean(),
   ignoreInjectedKeys: z.boolean(),
+  enabled: z.boolean(),
 });
 
 export type MacroFormValues = z.infer<typeof macroFormSchema>;
@@ -125,6 +126,15 @@ export default function MacroForm({ values, onChange }: MacroFormProps) {
           onCheckedChange={(c) => update("ignoreInjectedKeys", !!c)}
         />
         <Label htmlFor="ignoreInjectedKeys">Ignore injected keys</Label>
+      </div>
+
+      <div className="flex items-center gap-2 lg:pt-6">
+        <Checkbox
+          id="enabled"
+          checked={values.enabled}
+          onCheckedChange={(c) => update("enabled", !!c)}
+        />
+        <Label htmlFor="enabled">Enable macro</Label>
       </div>
     </div>
   );
