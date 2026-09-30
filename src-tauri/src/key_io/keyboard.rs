@@ -1,36 +1,47 @@
 use std::time::Duration;
 
 use windows::Win32::UI::Input::KeyboardAndMouse::{
-    keybd_event, MapVirtualKeyA, KEYBD_EVENT_FLAGS, KEYEVENTF_KEYUP, MAPVK_VK_TO_VSC, VIRTUAL_KEY
+    MapVirtualKeyA, SendInput, INPUT, INPUT_0, INPUT_KEYBOARD, KEYBDINPUT, KEYEVENTF_KEYUP,
+    KEYEVENTF_SCANCODE, MAPVK_VK_TO_VSC, VIRTUAL_KEY,
 };
-
-const KEY_UP: KEYBD_EVENT_FLAGS = KEYEVENTF_KEYUP;
-const KEY_DOWN: KEYBD_EVENT_FLAGS = KEYBD_EVENT_FLAGS(0);
 
 pub struct Keyboard;
 
 impl Keyboard {
-    
     pub fn press_key(virtual_key: VIRTUAL_KEY, duration: Option<Duration>) {
-        let key: u8 = virtual_key.0 as u8;
+        let scan_code = Self::vk_to_scan_code(virtual_key.0 as u32);
 
-        Self::send_input(key, KEY_DOWN);
+        Self::send_keybd_input(scan_code, KEYEVENTF_SCANCODE, 0);
         if let Some(dur) = duration {
             std::thread::sleep(dur);
         }
-        Self::send_input(key, KEY_UP);
+        Self::send_keybd_input(scan_code, KEYEVENTF_SCANCODE | KEYEVENTF_KEYUP, 0);
     }
 
-    fn send_input(key: u8, flag: KEYBD_EVENT_FLAGS) {
-        let bscan = Self::vk_to_scan_code(key);
+    fn send_keybd_input(
+        scan_code: u16,
+        flags: windows::Win32::UI::Input::KeyboardAndMouse::KEYBD_EVENT_FLAGS,
+        extra_info: usize,
+    ) {
+        let input = INPUT {
+            r#type: INPUT_KEYBOARD,
+            Anonymous: INPUT_0 {
+                ki: KEYBDINPUT {
+                    wVk: VIRTUAL_KEY(0),
+                    wScan: scan_code,
+                    dwFlags: flags,
+                    time: 0,
+                    dwExtraInfo: extra_info,
+                },
+            },
+        };
+
         unsafe {
-            keybd_event(key, bscan, flag, 0);
+            SendInput(&[input], std::mem::size_of::<INPUT>() as i32);
         }
     }
 
-    fn vk_to_scan_code(vk: u8) -> u8 {
-        return unsafe { 
-            MapVirtualKeyA(vk as u32, MAPVK_VK_TO_VSC) as u8
-        }
+    fn vk_to_scan_code(vk: u32) -> u16 {
+        unsafe { MapVirtualKeyA(vk, MAPVK_VK_TO_VSC) as u16 }
     }
 }
