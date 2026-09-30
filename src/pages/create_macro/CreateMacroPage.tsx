@@ -10,6 +10,7 @@ import { KeyEvent } from "@/model/KeyEvent";
 import { Mode } from "@/model/Mode";
 import { Macro } from "@/model/Macro";
 import { Save } from "lucide-react";
+import { addMacro } from "@/services/MacroService";
 
 type ActionItem = { id: string; event: KeyEvent };
 
@@ -27,6 +28,7 @@ function newId() {
 export function CreateMacroPage() {
   const [config, setConfig] = useState<MacroFormValues>(initialConfig);
   const [actions, setActions] = useState<ActionItem[]>([]);
+  const [saving, setSaving] = useState(false);
 
   function handleAdd(event: KeyEvent) {
     setActions((prev) => [...prev, { id: newId(), event }]);
@@ -40,7 +42,7 @@ export function CreateMacroPage() {
     setActions(newActions);
   }
 
-  function handleSave() {
+  async function handleSave() {
     const result = macroFormSchema.safeParse(config);
     if (!result.success) {
       console.error("Invalid config:", result.error);
@@ -51,8 +53,20 @@ export function CreateMacroPage() {
       mode: result.data.mode as Mode,
       actions: actions.map((a) => a.event),
       blockOriginalKey: result.data.blockOriginalEvent,
+      ignoreInjectedKeys: result.data.ignoreInjectedKeys,
     };
-    console.log("Saving macro:", macro);
+    setSaving(true);
+    try {
+      const success = await addMacro(macro);
+      if (success) {
+        setConfig(initialConfig);
+        setActions([]);
+      }
+    } catch (e) {
+      console.error("Error saving macro:", e);
+    } finally {
+      setSaving(false);
+    }
   }
 
   const isValid = !!config.triggerKey && !!config.mode && actions.length > 0;
@@ -98,9 +112,9 @@ export function CreateMacroPage() {
       </section>
 
       <div className="flex justify-end">
-        <Button onClick={handleSave} disabled={!isValid}>
+        <Button onClick={handleSave} disabled={!isValid || saving}>
           <Save className="size-4" />
-          Save Macro
+          {saving ? "Saving..." : "Save Macro"}
         </Button>
       </div>
     </div>

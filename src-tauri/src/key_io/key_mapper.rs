@@ -1,18 +1,23 @@
 use indexmap::IndexMap;
+use once_cell::sync::Lazy;
 use windows::Win32::UI::Input::KeyboardAndMouse::*;
 
-#[allow(dead_code)]
 pub struct KeyMapper {
     str_to_vk: IndexMap<String, u16>,
     vk_to_str: IndexMap<u16, String>,
 }
 
-#[allow(dead_code)]
+static KEY_MAPPER: Lazy<KeyMapper> = Lazy::new(|| {
+    KeyMapper::build()
+});
+
 impl KeyMapper {
 
-    // No singleton pattern due to personal choice
-    // I prefer to release memory and create a new one if needed
-    pub fn new() -> Self {
+    pub fn instance() -> &'static KeyMapper {
+        &KEY_MAPPER
+    }
+
+    fn build() -> KeyMapper {
         let mut key_mapper = KeyMapper {
             str_to_vk: IndexMap::new(),
             vk_to_str: IndexMap::new()
@@ -139,6 +144,7 @@ impl KeyMapper {
         return self.vk_to_str.values().into_iter().map(|s| s.clone()).collect();
     }
 
+    #[allow(dead_code)]
     pub fn vk_vec(&self) -> Vec<u16> {
         return self.str_to_vk.values().into_iter().map(|vk| vk.clone()).collect();
     }
@@ -150,7 +156,7 @@ mod tests {
 
     #[test]
     fn test_vk_to_string_basic_keys() {
-        let mapper = KeyMapper::new();
+        let mapper = KeyMapper::instance();
         assert_eq!(mapper.vk_to_string(&VK_A.0), Some("A".to_string())); // 'A'
         assert_eq!(mapper.vk_to_string(&VK_0.0), Some("0".to_string())); // '0'
         assert_eq!(mapper.vk_to_string(&VK_RETURN.0), Some("enter".to_string()));
@@ -159,7 +165,7 @@ mod tests {
 
     #[test]
     fn test_string_to_vk_basic_keys() {
-        let mapper = KeyMapper::new();
+        let mapper = KeyMapper::instance();
         assert_eq!(mapper.string_to_vk(&"A".to_string()), Some(VK_A.0));
         assert_eq!(mapper.string_to_vk(&"0".to_string()), Some(VK_0.0));
         assert_eq!(mapper.string_to_vk(&"enter".to_string()), Some(VK_RETURN.0));
@@ -168,19 +174,19 @@ mod tests {
 
     #[test]
     fn test_vk_to_string_not_found() {
-        let mapper = KeyMapper::new();
+        let mapper = KeyMapper::instance();
         assert_eq!(mapper.vk_to_string(&9999), None);
     }
 
     #[test]
     fn test_string_to_vk_not_found() {
-        let mapper = KeyMapper::new();
+        let mapper = KeyMapper::instance();
         assert_eq!(mapper.string_to_vk(&"not_a_key".to_string()), None);
     }
 
     #[test]
     fn test_vk_to_string_and_back() {
-        let mapper = KeyMapper::new();
+        let mapper = KeyMapper::instance();
         let keys = vec!["A", "enter", "mouse_left", "F12", "numpad5"];
         for key in keys {
             let vk = mapper.string_to_vk(&key.to_string()).unwrap();

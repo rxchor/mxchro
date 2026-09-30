@@ -1,5 +1,7 @@
+use serde::{Deserialize, Serialize};
+
 #[allow(dead_code)]
-#[derive(PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Mode {
     TOGGLE,
     HOLD,

@@ -6,4 +6,5 @@ export interface Macro {
     mode: Mode;
     actions: KeyEvent[],
     blockOriginalKey: boolean;
+    ignoreInjectedKeys: boolean;
 }

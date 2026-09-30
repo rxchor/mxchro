@@ -11,7 +11,6 @@ pub struct Keyboard;
 
 impl Keyboard {
     
-    #[allow(dead_code)]
     pub fn press_key(virtual_key: VIRTUAL_KEY, duration: Option<Duration>) {
         let key: u8 = virtual_key.0 as u8;
 
@@ -22,7 +21,6 @@ impl Keyboard {
         Self::send_input(key, KEY_UP);
     }
 
-    #[allow(dead_code)]
     fn send_input(key: u8, flag: KEYBD_EVENT_FLAGS) {
         let bscan = Self::vk_to_scan_code(key);
         unsafe {
@@ -30,7 +28,6 @@ impl Keyboard {
         }
     }
 
-    #[allow(dead_code)]
     fn vk_to_scan_code(vk: u8) -> u8 {
         return unsafe { 
             MapVirtualKeyA(vk as u32, MAPVK_VK_TO_VSC) as u8
