@@ -56,8 +56,8 @@ function fromSnakeCase(dto: MacroSummaryDto): MacroSummary {
 }
 
 export async function addMacro(macro: Macro): Promise<boolean> {
-    const dto = toSnakeCase(macro);
-    return await invoke<boolean>("add_macro", { dto });
+    const config = toSnakeCase(macro);
+    return await invoke<boolean>("add_macro", { config });
 }
 
 export async function deleteMacro(triggerKey: string): Promise<boolean> {
@@ -75,8 +75,4 @@ export async function disableMacro(triggerKey: string): Promise<boolean> {
 export async function listMacros(): Promise<MacroSummary[]> {
     const dtos = await invoke<MacroSummaryDto[]>("list_macros");
     return dtos.map(fromSnakeCase);
-}
-
-export async function startHook(): Promise<void> {
-    return await invoke<void>("start_hook");
 }

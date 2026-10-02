@@ -12,7 +12,6 @@ static KEY_MAPPER: Lazy<KeyMapper> = Lazy::new(|| {
 });
 
 impl KeyMapper {
-
     pub fn instance() -> &'static KeyMapper {
         &KEY_MAPPER
     }
@@ -20,31 +19,24 @@ impl KeyMapper {
     fn build() -> KeyMapper {
         let mut key_mapper = KeyMapper {
             str_to_vk: IndexMap::new(),
-            vk_to_str: IndexMap::new()
+            vk_to_str: IndexMap::new(),
         };
 
-        // VK_KEYS gotten from windows api:
-        // reference: https://learn.microsoft.com/en-us/windows/win32/inputdev/virtual-key-codes
-
-        // inputs are hard coded because keyboard layout is most likely not going to change
-        // and the VK mapping methods the windows api has (such as MapVirtualKeyA)
-        // only have support for characters and not special characters (like F2, F3, Enter, etc...)
-        
         // letters A-Z
         for i in 0..26 {
-        let c = ((b'A' + i) as char).to_string();
+            let c = ((b'A' + i) as char).to_string();
             key_mapper.insert(c.clone(), (0x41 + i) as u16);
         }
 
         // digits 0-9
         for i in 0..=9 {
-        let key = i.to_string();
+            let key = i.to_string();
             key_mapper.insert(key.clone(), (0x30 + i) as u16);
         }
 
-        // Funciones F1-F24
+        // Functions F1-F24
         for i in 1..=24 {
-        let key = format!("F{}", i);
+            let key = format!("F{}", i);
             key_mapper.insert(key, (0x70 + (i - 1)) as u16);
         }
 
@@ -80,10 +72,9 @@ impl KeyMapper {
         key_mapper.insert("insert".to_string(), VK_INSERT.0);
         key_mapper.insert("delete".to_string(), VK_DELETE.0);
 
-
         // Numpad
         for i in 0..=9 {
-        let key = format!("numpad{}", i);
+            let key = format!("numpad{}", i);
             key_mapper.insert(key.clone(), (0x60 + i) as u16);
         }
         key_mapper.insert("numpad_mul".to_string(), VK_MULTIPLY.0);
@@ -93,14 +84,12 @@ impl KeyMapper {
         key_mapper.insert("numpad_decimal".to_string(), VK_DECIMAL.0);
         key_mapper.insert("numpad_div".to_string(), VK_DIVIDE.0);
 
-
         // Special Keys
         key_mapper.insert("win_left".to_string(), VK_LWIN.0);
         key_mapper.insert("win_right".to_string(), VK_RWIN.0);
         key_mapper.insert("apps".to_string(), VK_APPS.0);
         key_mapper.insert("numlock".to_string(), VK_NUMLOCK.0);
         key_mapper.insert("scrolllock".to_string(), VK_SCROLL.0);
-
 
         // Media keys
         key_mapper.insert("vol_mute".to_string(), VK_VOLUME_MUTE.0);
@@ -110,7 +99,7 @@ impl KeyMapper {
         key_mapper.insert("media_prev".to_string(), VK_MEDIA_PREV_TRACK.0);
         key_mapper.insert("'".to_string(), VK_OEM_7.0);
 
-        return key_mapper;
+        key_mapper
     }
 
     fn insert(&mut self, str: String, vk: u16) {
@@ -129,12 +118,12 @@ impl KeyMapper {
     }
 
     pub fn strings_vec(&self) -> Vec<String> {
-        return self.vk_to_str.values().into_iter().map(|s| s.clone()).collect();
+        self.vk_to_str.values().map(|s| s.clone()).collect()
     }
 
     #[allow(dead_code)]
     pub fn vk_vec(&self) -> Vec<u16> {
-        return self.str_to_vk.values().into_iter().map(|vk| vk.clone()).collect();
+        self.str_to_vk.values().copied().collect()
     }
 }
 

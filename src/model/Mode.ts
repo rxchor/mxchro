@@ -1,5 +1,5 @@
 export enum Mode {
-    TOGGLE = "TOGGLE",
-    HOLD = "HOLD",
-    ONCE = "ONCE",
+    Toggle = "Toggle",
+    Hold = "Hold",
+    Once = "Once",
 }

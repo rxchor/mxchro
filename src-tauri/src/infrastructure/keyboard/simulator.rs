@@ -8,8 +8,8 @@ use windows::Win32::UI::Input::KeyboardAndMouse::{
 pub struct Keyboard;
 
 impl Keyboard {
-    pub fn press_key(virtual_key: VIRTUAL_KEY, duration: Option<Duration>) {
-        let scan_code = Self::vk_to_scan_code(virtual_key.0 as u32);
+    pub fn press_key(virtual_key: u16, duration: Option<Duration>) {
+        let scan_code = Self::vk_to_scan_code(virtual_key as u32);
 
         Self::send_keybd_input(scan_code, KEYEVENTF_SCANCODE, 0);
         if let Some(dur) = duration {
