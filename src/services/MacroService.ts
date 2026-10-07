@@ -119,3 +119,7 @@ export async function updateMacro(oldTriggerKey: string, macro: Macro): Promise<
     const config = toSnakeCase(macro);
     return await invoke<boolean>("update_macro", { oldTriggerKey, dto: config });
 }
+
+export async function wipeData(): Promise<void> {
+    return await invoke<void>("wipe_data");
+}

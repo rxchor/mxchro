@@ -50,8 +50,14 @@ fn update_macro(old_trigger_key: String, dto: MacroConfig) -> bool {
     Commands::new(&MACRO_MANAGER).update_macro(old_trigger_key, dto)
 }
 
+#[tauri::command]
+fn wipe_data() -> Result<(), String> {
+    Commands::new(&MACRO_MANAGER).wipe_data()
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    dotenv::dotenv().ok();
     env_logger::init();
     log::info!("Starting mxchro application");
 
@@ -68,6 +74,7 @@ pub fn run() {
             enable_macro,
             disable_macro,
             list_macros,
+            wipe_data,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

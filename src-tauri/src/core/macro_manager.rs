@@ -4,6 +4,7 @@ use std::thread::JoinHandle;
 use std::time::Duration;
 
 use crate::core::types::{Action, MacroConfig, MacroSummary, Mode};
+use crate::core::persistence::Persistence;
 use crate::infrastructure::keyboard::mapper::KeyMapper;
 use crate::infrastructure::keyboard::simulator::Keyboard;
 
@@ -34,25 +35,76 @@ pub struct KeyEventResult {
 pub struct MacroManager {
     macros: RwLock<HashMap<u16, MacroInstance>>,
     key_mapper: &'static KeyMapper,
+    persistence: Persistence,
 }
 
 impl MacroManager {
     pub fn new() -> Self {
-        MacroManager {
+        let manager = MacroManager {
             macros: RwLock::new(HashMap::new()),
             key_mapper: KeyMapper::instance(),
+            persistence: Persistence::new(),
+        };
+        
+        // Cargar macros desde el archivo
+        manager.load_from_file();
+        
+        manager
+    }
+
+    pub fn load_from_file(&self) {
+        let configs = self.persistence.load_macros();
+        let mut macros = self.macros.write().unwrap();
+        
+        for config in configs {
+            if let Some(vk) = self.key_mapper.string_to_vk(&config.trigger_key) {
+                if !macros.contains_key(&vk) {
+                    let mut instance = self.create_instance(config);
+                    if instance.enabled {
+                        instance.spawn_repeat_thread();
+                    }
+                    macros.insert(vk, instance);
+                }
+            }
+        }
+        
+        log::info!("Loaded {} macros from persistence", macros.len());
+    }
+
+    fn save_to_file(&self) {
+        let macros = self.macros.read().unwrap();
+        let configs: Vec<MacroConfig> = macros.values().map(|instance| {
+            MacroConfig {
+                trigger_key: self.key_mapper.vk_to_string(&instance.trigger_key).unwrap_or_default().to_string(),
+                mode: instance.mode.clone(),
+                actions: instance.actions_config.clone(),
+                block_original_event: instance.block_original_event,
+                ignore_injected_keys: instance.ignore_injected_keys,
+                enabled: instance.enabled,
+            }
+        }).collect();
+        
+        if let Err(e) = self.persistence.save_macros(&configs) {
+            log::error!("Failed to save macros to file: {}", e);
         }
     }
 
-    pub fn add_macro(&self, config: MacroConfig) -> bool {
-        let vk = match self.key_mapper.string_to_vk(&config.trigger_key) {
-            Some(vk) => vk,
-            None => {
-                log::warn!("add_macro: trigger key '{}' not recognized", config.trigger_key);
-                return false;
-            }
-        };
+    pub fn wipe_data(&self) -> Result<(), String> {
+        // Detener todos los hilos de repetición
+        let mut macros = self.macros.write().unwrap();
+        for (_, mut instance) in macros.drain() {
+            instance.stop_repeat_thread();
+        }
+        
+        // Limpiar el archivo
+        self.persistence.wipe_data()?;
+        
+        log::info!("Wiped all macro data");
+        Ok(())
+    }
 
+    fn create_instance(&self, config: MacroConfig) -> MacroInstance {
+        let vk = self.key_mapper.string_to_vk(&config.trigger_key).unwrap();
         let actions = self.build_actions(&config.actions);
         let actions_count = actions.len();
         let combined_action = self.combine_actions(actions);
@@ -66,7 +118,7 @@ impl MacroManager {
             Condvar::new(),
         ));
 
-        let mut instance = MacroInstance {
+        MacroInstance {
             trigger_key: vk,
             mode: config.mode.clone(),
             action: combined_action,
@@ -77,25 +129,34 @@ impl MacroManager {
             actions_count,
             repeat_state,
             thread_handle: Arc::new(Mutex::new(None)),
+        }
+    }
+
+    pub fn add_macro(&self, config: MacroConfig) -> bool {
+        let vk = match self.key_mapper.string_to_vk(&config.trigger_key) {
+            Some(vk) => vk,
+            None => {
+                log::warn!("add_macro: trigger key '{}' not recognized", config.trigger_key);
+                return false;
+            }
         };
 
-        // Spawn del hilo DESPUÉS de verificar que la clave no existe,
-        // para no crear hilos innecesarios que se pierden.
         let mut macros = self.macros.write().unwrap();
         if macros.contains_key(&vk) {
-            log::warn!("add_macro: trigger key '{}' (vk={}) already exists, skipping", config.trigger_key, vk);
+            log::warn!("add_macro: trigger key '{}' (vk={}) already exists", config.trigger_key, vk);
             return false;
         }
 
+        let mut instance = self.create_instance(config);
         if instance.enabled {
             instance.spawn_repeat_thread();
         }
 
-        log::info!("Macro added: trigger={} (vk={}), mode={:?}, actions={}, enabled={}, block={}, ignore_injected={}",
-            config.trigger_key, vk, instance.mode, actions_count, instance.enabled,
-            instance.block_original_event, instance.ignore_injected_keys);
-
+        log::info!("Macro added: trigger={} (vk={})", instance.trigger_key, vk);
         macros.insert(vk, instance);
+        drop(macros);
+        
+        self.save_to_file();
         true
     }
 
@@ -185,6 +246,9 @@ impl MacroManager {
             config.trigger_key, new_vk, instance.mode, actions_count, instance.enabled);
 
         macros.insert(new_vk, instance);
+        drop(macros);
+        
+        self.save_to_file();
         true
     }
 
@@ -201,6 +265,9 @@ impl MacroManager {
         if let Some(mut instance) = macros.remove(&vk) {
             log::info!("Macro deleted: trigger={} (vk={})", trigger_key, vk);
             instance.stop_repeat_thread();
+            drop(macros);
+            
+            self.save_to_file();
             true
         } else {
             log::warn!("delete_macro: trigger key '{}' (vk={}) not found", trigger_key, vk);
@@ -221,6 +288,9 @@ impl MacroManager {
         if let Some(instance) = macros.get_mut(&vk) {
             log::info!("Macro enabled: trigger={} (vk={})", trigger_key, vk);
             instance.enable();
+            drop(macros);
+            
+            self.save_to_file();
             true
         } else {
             log::warn!("enable_macro: trigger key '{}' (vk={}) not found", trigger_key, vk);
@@ -241,6 +311,9 @@ impl MacroManager {
         if let Some(instance) = macros.get_mut(&vk) {
             log::info!("Macro disabled: trigger={} (vk={})", trigger_key, vk);
             instance.disable();
+            drop(macros);
+            
+            self.save_to_file();
             true
         } else {
             log::warn!("disable_macro: trigger key '{}' (vk={}) not found", trigger_key, vk);

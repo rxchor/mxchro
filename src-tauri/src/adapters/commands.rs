@@ -41,4 +41,8 @@ impl Commands {
     pub fn list_macros(&self) -> Vec<MacroSummary> {
         self.manager.list_macros()
     }
+
+    pub fn wipe_data(&self) -> Result<(), String> {
+        self.manager.wipe_data()
+    }
 }

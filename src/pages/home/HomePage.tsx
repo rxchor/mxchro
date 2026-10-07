@@ -1,14 +1,15 @@
 import { useEffect, useState } from "react";
-import { listMacros, deleteMacro, enableMacro, disableMacro, type MacroSummary } from "@/services/MacroService";
+import { listMacros, deleteMacro, enableMacro, disableMacro, wipeData, type MacroSummary } from "@/services/MacroService";
 import { formattedKey } from "@/services/KeyListService";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Trash2, RefreshCw, Power, Pencil } from "lucide-react";
+import { Trash2, RefreshCw, Power, Pencil, Eraser } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 export function HomePage() {
   const [macros, setMacros] = useState<MacroSummary[]>([]);
   const [loading, setLoading] = useState(true);
+  const [wiping, setWiping] = useState(false);
   const navigate = useNavigate();
 
   async function loadMacros() {
@@ -60,6 +61,22 @@ export function HomePage() {
     navigate("/create-macro", { state: { editTriggerKey: triggerKey } });
   }
 
+  async function handleWipeData() {
+    if (!confirm("Are you sure you want to wipe all macro data? This action cannot be undone.")) {
+      return;
+    }
+    
+    setWiping(true);
+    try {
+      await wipeData();
+      setMacros([]);
+    } catch (e) {
+      console.error("Error wiping data:", e);
+    } finally {
+      setWiping(false);
+    }
+  }
+
   return (
     <div className="w-full max-w-4xl mx-auto p-6 flex flex-col gap-6">
       <header className="flex items-center justify-between">
@@ -69,10 +86,16 @@ export function HomePage() {
             Manage your configured macros
           </p>
         </div>
-        <Button variant="outline" size="sm" onClick={loadMacros} disabled={loading}>
-          <RefreshCw className={`size-4 mr-2 ${loading ? "animate-spin" : ""}`} />
-          Refresh
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={loadMacros} disabled={loading}>
+            <RefreshCw className={`size-4 mr-2 ${loading ? "animate-spin" : ""}`} />
+            Refresh
+          </Button>
+          <Button variant="destructive" size="sm" onClick={handleWipeData} disabled={wiping}>
+            <Eraser className={`size-4 mr-2 ${wiping ? "animate-pulse" : ""}`} />
+            {wiping ? "Wiping..." : "Wipe Data"}
+          </Button>
+        </div>
       </header>
 
       {loading && macros.length === 0 ? (

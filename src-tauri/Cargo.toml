@@ -30,3 +30,4 @@ windows = {version = "0.62.1", features = ["Win32_UI_Input_KeyboardAndMouse", "W
 once_cell = "1.21.3"
 log = "0.4"
 env_logger = "0.11"
+dotenv = "0.15"
