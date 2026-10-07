@@ -21,11 +21,11 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { KeyEvent } from "@/model/KeyEvent";
+import { ActionConfig } from "@/model/ActionConfig";
 import { formattedKey } from "@/services/KeyListService";
-import { GripVertical, X } from "lucide-react";
+import { GripVertical, X, ArrowDownToLine, ArrowUpFromLine, Timer } from "lucide-react";
 
-type ActionItem = { id: string; event: KeyEvent };
+type ActionItem = { id: string; action: ActionConfig };
 
 interface ActionsListProps {
   actions: ActionItem[];
@@ -87,7 +87,7 @@ export default function ActionsList({
                 <SortableActionItem
                   key={item.id}
                   id={item.id}
-                  action={item.event}
+                  action={item.action}
                   onRemove={() => onRemove(item.id)}
                 />
               ))}
@@ -98,7 +98,7 @@ export default function ActionsList({
         <DragOverlay>
           {activeItem ? (
             <ActionCard
-              action={activeItem.event}
+              action={activeItem.action}
               className="border-primary shadow-2xl cursor-grabbing rotate-1"
             />
           ) : null}
@@ -114,7 +114,7 @@ function SortableActionItem({
   onRemove,
 }: {
   id: string;
-  action: KeyEvent;
+  action: ActionConfig;
   onRemove: () => void;
 }) {
   const {
@@ -133,24 +133,25 @@ function SortableActionItem({
   };
 
   return (
-    <div ref={setNodeRef} style={style} className="flex items-center gap-2">
-      <button
-        type="button"
+    <div
+      ref={setNodeRef}
+      style={style}
+      className="flex items-center gap-2"
+    >
+      <div
         {...attributes}
         {...listeners}
-        className="cursor-grab touch-none p-1 rounded hover:bg-muted"
+        className="flex-1 flex items-center gap-2 cursor-grab touch-none min-w-0"
       >
-        <GripVertical className="size-4 text-muted-foreground" />
-      </button>
-      <div className="flex-1">
-        <ActionCard action={action} />
+        <GripVertical className="size-4 text-muted-foreground flex-shrink-0" />
+        <ActionCard action={action} className="flex-1" />
       </div>
       <Button
         type="button"
         variant="ghost"
         size="icon"
         onClick={onRemove}
-        className="size-8"
+        className="size-8 flex-shrink-0"
       >
         <X className="size-4" />
       </Button>
@@ -162,27 +163,37 @@ function ActionCard({
   action,
   className,
 }: {
-  action: KeyEvent;
+  action: ActionConfig;
   className?: string;
 }) {
-  const isWait = action.sleep !== undefined && !action.key;
-  const isKey = !!action.key;
-
   return (
     <Card className={cn("p-3 flex items-center gap-3", className)}>
-      <span className="text-xs uppercase font-semibold text-muted-foreground w-10">
-        {isWait ? "Wait" : isKey ? "Key" : "?"}
-      </span>
-      {isKey && (
-        <span className="font-semibold px-2 py-0.5 rounded bg-primary text-primary-foreground">
-          {formattedKey(action.key!)}
-        </span>
-      )}
-      {isWait && <span className="font-semibold">{action.sleep} ms</span>}
-      {isKey && action.sleep !== undefined && (
-        <span className="text-sm text-muted-foreground">
-          hold {action.sleep}ms
-        </span>
+      {action.type === "key" ? (
+        <>
+          <div className="flex items-center justify-center w-8 h-8 rounded bg-primary/10">
+            {action.press ? (
+              <ArrowDownToLine className="size-4 text-primary" />
+            ) : (
+              <ArrowUpFromLine className="size-4 text-primary" />
+            )}
+          </div>
+          <span className="text-xs uppercase font-semibold text-muted-foreground">
+            {action.press ? "Press" : "Release"}
+          </span>
+          <span className="font-semibold px-2 py-0.5 rounded bg-primary text-primary-foreground">
+            {formattedKey(action.key)}
+          </span>
+        </>
+      ) : (
+        <>
+          <div className="flex items-center justify-center w-8 h-8 rounded bg-muted">
+            <Timer className="size-4 text-muted-foreground" />
+          </div>
+          <span className="text-xs uppercase font-semibold text-muted-foreground">
+            Wait
+          </span>
+          <span className="font-semibold">{action.duration_ms} ms</span>
+        </>
       )}
     </Card>
   );

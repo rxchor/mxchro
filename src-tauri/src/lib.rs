@@ -40,6 +40,16 @@ fn list_macros() -> Vec<MacroSummary> {
     Commands::new(&MACRO_MANAGER).list_macros()
 }
 
+#[tauri::command]
+fn get_macro(trigger_key: String) -> Option<MacroConfig> {
+    Commands::new(&MACRO_MANAGER).get_macro(trigger_key)
+}
+
+#[tauri::command]
+fn update_macro(old_trigger_key: String, dto: MacroConfig) -> bool {
+    Commands::new(&MACRO_MANAGER).update_macro(old_trigger_key, dto)
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     env_logger::init();
@@ -52,6 +62,8 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             get_vk_string_values,
             add_macro,
+            get_macro,
+            update_macro,
             delete_macro,
             enable_macro,
             disable_macro,

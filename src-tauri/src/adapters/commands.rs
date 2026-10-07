@@ -18,6 +18,14 @@ impl Commands {
         self.manager.add_macro(config)
     }
 
+    pub fn get_macro(&self, trigger_key: String) -> Option<MacroConfig> {
+        self.manager.get_macro(&trigger_key)
+    }
+
+    pub fn update_macro(&self, old_trigger_key: String, config: MacroConfig) -> bool {
+        self.manager.update_macro(&old_trigger_key, config)
+    }
+
     pub fn delete_macro(&self, trigger_key: String) -> bool {
         self.manager.delete_macro(&trigger_key)
     }

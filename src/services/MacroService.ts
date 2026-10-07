@@ -11,10 +11,17 @@ export interface MacroSummary {
     enabled: boolean;
 }
 
+interface ActionDto {
+    type: "key" | "wait";
+    key?: string;
+    press?: boolean;
+    duration_ms?: number;
+}
+
 interface MacroDto {
     trigger_key: string;
     mode: Mode;
-    actions: Array<{ key?: string; sleep?: number; hold?: number }>;
+    actions: ActionDto[];
     block_original_event: boolean;
     ignore_injected_keys: boolean;
     enabled: boolean;
@@ -33,11 +40,20 @@ function toSnakeCase(macro: Macro): MacroDto {
     return {
         trigger_key: macro.triggerKey,
         mode: macro.mode,
-        actions: macro.actions.map(a => ({
-            key: a.key,
-            sleep: a.sleep,
-            hold: a.hold,
-        })),
+        actions: macro.actions.map(a => {
+            if (a.type === "key") {
+                return {
+                    type: "key" as const,
+                    key: a.key,
+                    press: a.press,
+                };
+            } else {
+                return {
+                    type: "wait" as const,
+                    duration_ms: a.duration_ms,
+                };
+            }
+        }),
         block_original_event: macro.blockOriginalKey,
         ignore_injected_keys: macro.ignoreInjectedKeys,
         enabled: macro.enabled,
@@ -50,6 +66,23 @@ function fromSnakeCase(dto: MacroSummaryDto): MacroSummary {
         mode: dto.mode,
         actionsCount: dto.actions_count,
         blockOriginalEvent: dto.block_original_event,
+        ignoreInjectedKeys: dto.ignore_injected_keys,
+        enabled: dto.enabled,
+    };
+}
+
+function fromSnakeCaseToMacro(dto: MacroDto): Macro {
+    return {
+        triggerKey: dto.trigger_key,
+        mode: dto.mode,
+        actions: dto.actions.map(a => {
+            if (a.type === "key") {
+                return { type: "key" as const, key: a.key!, press: a.press! };
+            } else {
+                return { type: "wait" as const, duration_ms: a.duration_ms! };
+            }
+        }),
+        blockOriginalKey: dto.block_original_event,
         ignoreInjectedKeys: dto.ignore_injected_keys,
         enabled: dto.enabled,
     };
@@ -75,4 +108,14 @@ export async function disableMacro(triggerKey: string): Promise<boolean> {
 export async function listMacros(): Promise<MacroSummary[]> {
     const dtos = await invoke<MacroSummaryDto[]>("list_macros");
     return dtos.map(fromSnakeCase);
+}
+
+export async function getMacro(triggerKey: string): Promise<Macro | null> {
+    const dto = await invoke<MacroDto | null>("get_macro", { triggerKey });
+    return dto ? fromSnakeCaseToMacro(dto) : null;
+}
+
+export async function updateMacro(oldTriggerKey: string, macro: Macro): Promise<boolean> {
+    const config = toSnakeCase(macro);
+    return await invoke<boolean>("update_macro", { oldTriggerKey, dto: config });
 }

@@ -13,21 +13,22 @@ import {
   ComboboxTrigger,
   ComboboxData,
 } from "@/components/ui/shadcn-io/combobox";
-import { KeyboardIcon, Plus, TimerIcon } from "lucide-react";
-import { KeyEvent } from "@/model/KeyEvent";
+import { KeyboardIcon, Plus, TimerIcon, ArrowDownToLine, ArrowUpFromLine, ArrowUpDown } from "lucide-react";
+import { ActionConfig } from "@/model/ActionConfig";
 import { getKeys, formattedKey } from "@/services/KeyListService";
 import { cn } from "@/lib/utils";
 
 type ActionType = "key" | "wait";
+type KeyActionType = "both" | "press" | "release";
 
 interface AddActionFormProps {
-  onAdd: (event: KeyEvent) => void;
+  onAdd: (actions: ActionConfig[]) => void;
 }
 
 export default function AddActionForm({ onAdd }: AddActionFormProps) {
   const [type, setType] = useState<ActionType>("key");
+  const [keyActionType, setKeyActionType] = useState<KeyActionType>("both");
   const [key, setKey] = useState("");
-  const [hold, setHold] = useState("");
   const [sleep, setSleep] = useState("");
   const [keys, setKeys] = useState<ComboboxData[]>([]);
 
@@ -39,34 +40,36 @@ export default function AddActionForm({ onAdd }: AddActionFormProps) {
 
   function reset() {
     setKey("");
-    setHold("");
     setSleep("");
   }
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (type === "key" && key) {
-      const holdMs = parseInt(hold, 10);
-      if (hold && (isNaN(holdMs) || holdMs <= 0)) return;
-      onAdd({ key, sleep: !isNaN(holdMs) && holdMs > 0 ? holdMs : undefined });
+      const actions: ActionConfig[] = [];
+      if (keyActionType === "both") {
+        actions.push({ type: "key", key, press: true });
+        actions.push({ type: "key", key, press: false });
+      } else {
+        actions.push({ type: "key", key, press: keyActionType === "press" });
+      }
+      onAdd(actions);
       reset();
       return;
     }
     if (type === "wait") {
       const ms = parseInt(sleep, 10);
       if (!isNaN(ms) && ms > 0) {
-        onAdd({ sleep: ms });
+        onAdd([{ type: "wait", duration_ms: ms }]);
         reset();
       }
     }
   }
 
   const sleepMs = parseInt(sleep, 10);
-  const holdMs = parseInt(hold, 10);
-  const holdValid = hold === "" || (!isNaN(holdMs) && holdMs > 0);
   const canSubmit =
     type === "key"
-      ? !!key && holdValid
+      ? !!key
       : !isNaN(sleepMs) && sleepMs > 0;
 
   return (
@@ -108,6 +111,50 @@ export default function AddActionForm({ onAdd }: AddActionFormProps) {
       {type === "key" ? (
         <>
           <div className="flex flex-col gap-2">
+            <Label>Action Type</Label>
+            <div className="inline-flex w-full rounded-lg bg-muted p-1">
+              <button
+                type="button"
+                onClick={() => setKeyActionType("both")}
+                className={cn(
+                  "flex-1 inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-md px-2 py-1 text-sm font-medium transition-all",
+                  keyActionType === "both"
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                <ArrowUpDown className="size-4" />
+                Both
+              </button>
+              <button
+                type="button"
+                onClick={() => setKeyActionType("press")}
+                className={cn(
+                  "flex-1 inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-md px-2 py-1 text-sm font-medium transition-all",
+                  keyActionType === "press"
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                <ArrowDownToLine className="size-4" />
+                Press
+              </button>
+              <button
+                type="button"
+                onClick={() => setKeyActionType("release")}
+                className={cn(
+                  "flex-1 inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-md px-2 py-1 text-sm font-medium transition-all",
+                  keyActionType === "release"
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                <ArrowUpFromLine className="size-4" />
+                Release
+              </button>
+            </div>
+          </div>
+          <div className="flex flex-col gap-2">
             <Label>Key</Label>
             <Combobox
               value={key}
@@ -130,22 +177,6 @@ export default function AddActionForm({ onAdd }: AddActionFormProps) {
                 </ComboboxList>
               </ComboboxContent>
             </Combobox>
-          </div>
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="hold">
-              Hold duration <span className="text-muted-foreground">(optional)</span>
-            </Label>
-            <Input
-              id="hold"
-              type="number"
-              min={1}
-              value={hold}
-              onChange={(e) => setHold(e.target.value)}
-              placeholder="0"
-            />
-            <p className="text-xs text-muted-foreground">
-              ms between key down and key up
-            </p>
           </div>
         </>
       ) : (

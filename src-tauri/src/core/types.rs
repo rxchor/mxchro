@@ -9,17 +9,19 @@ pub enum Mode {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct KeyEvent {
-    pub key: Option<String>,
-    pub sleep: Option<u64>,
-    pub hold: Option<u64>,
+#[serde(tag = "type")]
+pub enum ActionConfig {
+    #[serde(rename = "key")]
+    Key { key: String, press: bool },
+    #[serde(rename = "wait")]
+    Wait { duration_ms: u64 },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MacroConfig {
     pub trigger_key: String,
     pub mode: Mode,
-    pub actions: Vec<KeyEvent>,
+    pub actions: Vec<ActionConfig>,
     pub block_original_event: bool,
     pub ignore_injected_keys: bool,
     pub enabled: bool,

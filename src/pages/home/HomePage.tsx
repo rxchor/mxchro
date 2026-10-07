@@ -3,11 +3,13 @@ import { listMacros, deleteMacro, enableMacro, disableMacro, type MacroSummary }
 import { formattedKey } from "@/services/KeyListService";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Trash2, RefreshCw, Power } from "lucide-react";
+import { Trash2, RefreshCw, Power, Pencil } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 export function HomePage() {
   const [macros, setMacros] = useState<MacroSummary[]>([]);
   const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
 
   async function loadMacros() {
     setLoading(true);
@@ -52,6 +54,10 @@ export function HomePage() {
     } catch (e) {
       console.error("Error toggling macro:", e);
     }
+  }
+
+  function handleEdit(triggerKey: string) {
+    navigate("/create-macro", { state: { editTriggerKey: triggerKey } });
   }
 
   return (
@@ -107,6 +113,14 @@ export function HomePage() {
                 </div>
               </div>
               <div className="flex gap-2">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => handleEdit(macro.triggerKey)}
+                  title="Edit macro"
+                >
+                  <Pencil className="size-4" />
+                </Button>
                 <Button
                   variant="ghost"
                   size="icon"

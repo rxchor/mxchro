@@ -17,6 +17,7 @@ struct MacroInstance {
     trigger_key: u16,
     mode: Mode,
     action: Action,
+    actions_config: Vec<crate::core::types::ActionConfig>, // Acciones originales para editar
     block_original_event: bool,
     ignore_injected_keys: bool,
     enabled: bool,
@@ -69,6 +70,7 @@ impl MacroManager {
             trigger_key: vk,
             mode: config.mode.clone(),
             action: combined_action,
+            actions_config: config.actions.clone(),
             block_original_event: config.block_original_event,
             ignore_injected_keys: config.ignore_injected_keys,
             enabled: config.enabled,
@@ -94,6 +96,95 @@ impl MacroManager {
             instance.block_original_event, instance.ignore_injected_keys);
 
         macros.insert(vk, instance);
+        true
+    }
+
+    pub fn get_macro(&self, trigger_key: &str) -> Option<MacroConfig> {
+        let vk = match self.key_mapper.string_to_vk(trigger_key) {
+            Some(vk) => vk,
+            None => return None,
+        };
+
+        let macros = self.macros.read().unwrap();
+        macros.get(&vk).map(|instance| MacroConfig {
+            trigger_key: self.key_mapper.vk_to_string(&instance.trigger_key).unwrap_or(trigger_key).to_string(),
+            mode: instance.mode.clone(),
+            actions: instance.actions_config.clone(),
+            block_original_event: instance.block_original_event,
+            ignore_injected_keys: instance.ignore_injected_keys,
+            enabled: instance.enabled,
+        })
+    }
+
+    pub fn update_macro(&self, old_trigger_key: &str, config: MacroConfig) -> bool {
+        let old_vk = match self.key_mapper.string_to_vk(old_trigger_key) {
+            Some(vk) => vk,
+            None => {
+                log::warn!("update_macro: old trigger key '{}' not recognized", old_trigger_key);
+                return false;
+            }
+        };
+
+        let new_vk = match self.key_mapper.string_to_vk(&config.trigger_key) {
+            Some(vk) => vk,
+            None => {
+                log::warn!("update_macro: new trigger key '{}' not recognized", config.trigger_key);
+                return false;
+            }
+        };
+
+        let mut macros = self.macros.write().unwrap();
+        
+        // Si cambia la tecla trigger, verificar que la nueva no exista
+        if old_vk != new_vk && macros.contains_key(&new_vk) {
+            log::warn!("update_macro: new trigger key '{}' (vk={}) already exists", config.trigger_key, new_vk);
+            return false;
+        }
+
+        // Eliminar la macro antigua
+        if let Some(mut old_instance) = macros.remove(&old_vk) {
+            old_instance.stop_repeat_thread();
+            log::info!("Macro updated: old trigger={} (vk={})", old_trigger_key, old_vk);
+        } else {
+            log::warn!("update_macro: macro with trigger key '{}' (vk={}) not found", old_trigger_key, old_vk);
+            return false;
+        }
+
+        // Crear la nueva macro
+        let actions = self.build_actions(&config.actions);
+        let actions_count = actions.len();
+        let combined_action = self.combine_actions(actions);
+
+        let repeat_state = Arc::new((
+            Mutex::new(RepeatState {
+                active: false,
+                should_stop: false,
+                is_executing: false,
+            }),
+            Condvar::new(),
+        ));
+
+        let mut instance = MacroInstance {
+            trigger_key: new_vk,
+            mode: config.mode.clone(),
+            action: combined_action,
+            actions_config: config.actions.clone(),
+            block_original_event: config.block_original_event,
+            ignore_injected_keys: config.ignore_injected_keys,
+            enabled: config.enabled,
+            actions_count,
+            repeat_state,
+            thread_handle: Arc::new(Mutex::new(None)),
+        };
+
+        if instance.enabled {
+            instance.spawn_repeat_thread();
+        }
+
+        log::info!("Macro updated: new trigger={} (vk={}), mode={:?}, actions={}, enabled={}",
+            config.trigger_key, new_vk, instance.mode, actions_count, instance.enabled);
+
+        macros.insert(new_vk, instance);
         true
     }
 
@@ -258,28 +349,28 @@ impl MacroManager {
         KeyEventResult { should_block }
     }
 
-    fn build_actions(&self, events: &[crate::core::types::KeyEvent]) -> Vec<Action> {
+    fn build_actions(&self, events: &[crate::core::types::ActionConfig]) -> Vec<Action> {
         events
             .iter()
-            .filter_map(|event| {
-                if let Some(sleep_ms) = event.sleep {
-                    if event.key.is_none() {
-                        return Some(Arc::new(move || {
-                            std::thread::sleep(Duration::from_millis(sleep_ms));
-                        }) as Action);
-                    }
+            .filter_map(|event| match event {
+                crate::core::types::ActionConfig::Wait { duration_ms } => {
+                    let duration = *duration_ms;
+                    Some(Arc::new(move || {
+                        std::thread::sleep(Duration::from_millis(duration));
+                    }) as Action)
                 }
+                crate::core::types::ActionConfig::Key { key, press } => {
+                    let vk = self.key_mapper.string_to_vk(key)?;
+                    let press = *press;
 
-                if let Some(key_str) = &event.key {
-                    let vk = self.key_mapper.string_to_vk(key_str)?;
-                    let hold_duration = event.hold.map(|ms| Duration::from_millis(ms));
-
-                    return Some(Arc::new(move || {
-                        Keyboard::press_key(vk, hold_duration);
-                    }) as Action);
+                    Some(Arc::new(move || {
+                        if press {
+                            Keyboard::key_down(vk);
+                        } else {
+                            Keyboard::key_up(vk);
+                        }
+                    }) as Action)
                 }
-
-                None
             })
             .collect()
     }

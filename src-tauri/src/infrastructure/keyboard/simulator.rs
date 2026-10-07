@@ -1,5 +1,3 @@
-use std::time::Duration;
-
 use windows::Win32::UI::Input::KeyboardAndMouse::{
     MapVirtualKeyA, SendInput, INPUT, INPUT_0, INPUT_KEYBOARD, KEYBDINPUT, KEYEVENTF_KEYUP,
     KEYEVENTF_SCANCODE, MAPVK_VK_TO_VSC, VIRTUAL_KEY,
@@ -8,13 +6,13 @@ use windows::Win32::UI::Input::KeyboardAndMouse::{
 pub struct Keyboard;
 
 impl Keyboard {
-    pub fn press_key(virtual_key: u16, duration: Option<Duration>) {
+    pub fn key_down(virtual_key: u16) {
         let scan_code = Self::vk_to_scan_code(virtual_key as u32);
-
         Self::send_keybd_input(scan_code, KEYEVENTF_SCANCODE, 0);
-        if let Some(dur) = duration {
-            std::thread::sleep(dur);
-        }
+    }
+
+    pub fn key_up(virtual_key: u16) {
+        let scan_code = Self::vk_to_scan_code(virtual_key as u32);
         Self::send_keybd_input(scan_code, KEYEVENTF_SCANCODE | KEYEVENTF_KEYUP, 0);
     }
 
