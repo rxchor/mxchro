@@ -59,14 +59,14 @@ impl KeyboardHook {
             let is_key_up = w_param.0 as u32 == WM_KEYUP || w_param.0 as u32 == WM_SYSKEYUP;
             let is_injected = (kb_struct.flags.0 & LLKHF_INJECTED.0) != 0;
 
-            if let Some(manager) = unsafe { MACRO_MANAGER } {
-                if is_key_down {
-                    manager.on_key_down(vk, is_injected);
-                } else if is_key_up {
-                    manager.on_key_up(vk);
-                }
+            log::trace!("Key event: vk={}, down={}, up={}, injected={}", vk, is_key_down, is_key_up, is_injected);
 
-                if manager.should_block_key(vk) {
+            if let Some(manager) = unsafe { MACRO_MANAGER } {
+                // Procesar todo en una sola operación para minimizar el tiempo con el lock
+                let action_info = manager.process_key_event(vk, is_key_down, is_key_up, is_injected);
+                
+                if action_info.should_block {
+                    log::debug!("Blocking key: vk={}", vk);
                     return LRESULT(1);
                 }
             }

@@ -42,6 +42,9 @@ fn list_macros() -> Vec<MacroSummary> {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    env_logger::init();
+    log::info!("Starting mxchro application");
+
     KeyboardHook::install(&MACRO_MANAGER);
 
     tauri::Builder::default()

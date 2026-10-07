@@ -28,3 +28,5 @@ indexmap = "2.11.4"
 # Depedencies for key simulation, WINDOWS ONLY
 windows = {version = "0.62.1", features = ["Win32_UI_Input_KeyboardAndMouse", "Win32_UI_WindowsAndMessaging", "Win32_UI_Accessibility", "Win32_Foundation"] }
 once_cell = "1.21.3"
+log = "0.4"
+env_logger = "0.11"

@@ -8,7 +8,10 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "tauri:dev:info": "cross-env RUST_LOG=info tauri dev",
+    "tauri:dev:debug": "cross-env RUST_LOG=debug tauri dev",
+    "tauri:dev:trace": "cross-env RUST_LOG=trace tauri dev"
   },
   "dependencies": {
     "@dnd-kit/core": "6.3.1",
@@ -48,6 +51,7 @@
     "@types/react": "19.1.8",
     "@types/react-dom": "19.1.6",
     "@vitejs/plugin-react": "5.2.0",
+    "cross-env": "^10.1.0",
     "tw-animate-css": "1.3.8",
     "typescript": "5.9.2",
     "vite": "7.3.6"

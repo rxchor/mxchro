@@ -11,6 +11,7 @@ import { Mode } from "@/model/Mode";
 import { Macro } from "@/model/Macro";
 import { Save } from "lucide-react";
 import { addMacro } from "@/services/MacroService";
+import { useNavigate } from "react-router-dom";
 
 type ActionItem = { id: string; event: KeyEvent };
 
@@ -30,6 +31,7 @@ export function CreateMacroPage() {
   const [config, setConfig] = useState<MacroFormValues>(initialConfig);
   const [actions, setActions] = useState<ActionItem[]>([]);
   const [saving, setSaving] = useState(false);
+  const navigate = useNavigate();
 
   function handleAdd(event: KeyEvent) {
     setActions((prev) => [...prev, { id: newId(), event }]);
@@ -41,6 +43,10 @@ export function CreateMacroPage() {
 
   function handleReorder(newActions: ActionItem[]) {
     setActions(newActions);
+  }
+
+  function navigateToHome() {
+    navigate("/");
   }
 
   async function handleSave() {
@@ -64,9 +70,10 @@ export function CreateMacroPage() {
         setConfig(initialConfig);
         setActions([]);
       }
+      setSaving(false);
+      navigateToHome();
     } catch (e) {
       console.error("Error saving macro:", e);
-    } finally {
       setSaving(false);
     }
   }

@@ -57,7 +57,7 @@ function fromSnakeCase(dto: MacroSummaryDto): MacroSummary {
 
 export async function addMacro(macro: Macro): Promise<boolean> {
     const config = toSnakeCase(macro);
-    return await invoke<boolean>("add_macro", { config });
+    return await invoke<boolean>("add_macro", { dto: config });
 }
 
 export async function deleteMacro(triggerKey: string): Promise<boolean> {
