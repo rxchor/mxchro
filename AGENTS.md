@@ -64,6 +64,50 @@ Macros must not interfere with themselves via injected events:
 
 `block_original_event` only applies to **non-injected** events. If it blocked injected events too, the macro's own actions would never reach the application.
 
+### Action Model (Press/Release Separation)
+
+Actions use a discriminated union (`ActionConfig`) that separates key press and release as independent actions:
+
+```rust
+pub enum ActionConfig {
+    Key { key: String, press: bool },  // press=true for keydown, press=false for keyup
+    Wait { duration_ms: u64 },
+}
+```
+
+This enables complex key combinations (e.g., Ctrl+C = Press Ctrl, Press C, Release C, Release Ctrl) and gives users full control over timing with explicit Wait actions between press/release events.
+
+### Macro Editing
+
+Macros can be edited via `update_macro` command. The system:
+- Stores original `actions_config` in `MacroInstance` to allow editing
+- Uses `get_macro` command to retrieve full macro data for the edit form
+- Supports changing the trigger key (removes old, creates new)
+
+### Data Persistence
+
+Macros persist to JSON file, configurable via `.env`:
+
+```env
+# Development
+MACROS_FILE_PATH=./macros.json
+
+# Production (default if .env not set)
+%APPDATA%/mxchro/macros.json
+```
+
+Implementation:
+- `core/persistence.rs`: Handles load/save/wipe operations
+- Auto-load on startup via `MacroManager::new()`
+- Auto-save after every CRUD operation (add/update/delete/enable/disable)
+- `wipe_data` command available for clearing corrupt data during development
+
+### UI Features
+
+- **Icons in ActionsList**: Each action type has a distinct icon (ArrowDownToLine for Press, ArrowUpFromLine for Release, Timer for Wait)
+- **Full-element drag & drop**: Entire action card is draggable, not just the grip icon
+- **Batch action creation**: Adding a key creates both Press and Release actions together by default (configurable)
+
 ## Known Issues
 
 ### WebView2 Hook Limitation
@@ -79,6 +123,18 @@ Windows low-level keyboard hooks (`WH_KEYBOARD_LL`) don't capture events when th
 3. **Multiple reads in hook** → Process all event logic in single `macros.read()` acquisition (use `process_key_event`)
 4. **Thread cleanup** → Always call `stop_repeat_thread()` before removing macro
 5. **WebView2 focus** → Hook won't capture events when app window has focus (known limitation)
+
+## Code Style Conventions
+
+- **Extract repeated logic** into helper functions within components to avoid duplication
+- **Prefer composition over duplication**: If you write similar code multiple times, extract it into a reusable function
+- **Use descriptive function names** that explain intent (e.g., `actionIcon`, `actionLabel`, `actionText`)
+- **Keep components focused**: Delegate rendering logic to helper functions, keep main component clean
+- **Helper functions should accept parameters for flexibility**: For example, `className` parameters allow callers to customize styling
+- **Use discriminated unions** (TypeScript) or enums (Rust) for type-safe state representation
+- **Prefer explicit over implicit**: Use `flex-row` instead of relying on defaults, pass full `className` strings rather than combining partial ones
+- **Consistent container sizing**: Empty states and content states must use the same height/width (e.g., both `h-[40vh]`) to avoid layout shifts
+- **Simple CSS solutions first**: Before reaching for component libraries (e.g., ScrollArea), check if native CSS (`overflow-y-auto`) solves the problem
 
 ## File Modifications Guide
 
