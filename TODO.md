@@ -15,11 +15,23 @@
 ## 🟢 Features futuras
 
 - [ ] Grabación de macros en tiempo real (capturar pulsaciones y generar acciones automáticamente)
-- [ ] Triggers compuestos (combinaciones tipo Ctrl+Shift+A)
+- [x] ~~Triggers compuestos~~ → Ya se pueden hacer combinando press/release de múltiples teclas (ej: Ctrl Press → Shift Press → A Press → A Release → Shift Release → Ctrl Release)
 - [ ] Macros por aplicación (activar/desactivar según ventana en foco)
 - [ ] Import/export de perfiles de macros
 - [ ] Detección de teclas en UI (input que detecta tecla presionada en lugar de selección manual)
-- [ ] Velocidad de repetición configurable para Hold/Toggle
+- [x] ~~Velocidad de repetición configurable para Hold/Toggle~~ → Se controla con WAITs en las acciones (ej: Click Press → Click Release → Wait 10ms = 100 clicks/segundo)
+- [ ] Hotkey para activar/desactivar macros individuales (atajo de teclado global para controlar macros sin abrir la interfaz)
+- [ ] Colecciones para agrupar macros (permite organizar macros y activar/desactivar grupos completos en masa)
+
+## ✅ Completado
+
+### Refactors de arquitectura
+- **Persistencia JSON → PoloDB**: Migrado de archivo JSON a base de datos embebida PoloDB para mejor rendimiento y escalabilidad
+- **Convenciones de nomenclatura**: Establecidas convenciones claras para Entity (dominio), DTO (transferencia), Document (BD), View (proyección)
+- **Renombrado keyboard → input**: Refactorizado el módulo `keyboard` a `input` y `Keyboard` a `InputSimulator` para reflejar que soporta tanto teclado como ratón
+
+### Features
+- **Soporte para clicks de ratón**: Implementado soporte completo para botones de ratón (izquierdo, derecho, central, X1, X2) usando `INPUT_MOUSE` de Windows API
 
 ## 💡 Ideas / Backlog
 

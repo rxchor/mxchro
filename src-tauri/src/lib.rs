@@ -5,7 +5,7 @@ mod infrastructure;
 use adapters::commands::Commands;
 use core::macro_manager::MacroManager;
 use core::types::{Macro, MacroView};
-use infrastructure::keyboard::hook::KeyboardHook;
+use infrastructure::input::hook::KeyboardHook;
 use once_cell::sync::Lazy;
 
 static MACRO_MANAGER: Lazy<MacroManager> = Lazy::new(|| MacroManager::new());

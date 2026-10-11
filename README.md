@@ -6,7 +6,8 @@ Automatizador de macros de teclado para Windows que permite grabar, configurar y
 
 - **Múltiples modos de activación**: Once (una vez), Hold (mantener), Toggle (alternar)
 - **Hook de teclado global**: Captura teclas a nivel del sistema
-- **Simulación de teclas**: Ejecuta secuencias de teclas con timing preciso
+- **Simulación de teclado y ratón**: Ejecuta secuencias de teclas y clicks de ratón con timing preciso
+- **Soporte completo de ratón**: Botones izquierdo, derecho, central, X1 y X2
 - **Control de macros**: Activar/desactivar macros en tiempo real
 - **Bloqueo de teclas**: Opción de bloquear la tecla original
 - **Filtrado de teclas inyectadas**: Evita loops infinitos
@@ -18,13 +19,14 @@ El backend está diseñado con una arquitectura en capas para maximizar la porta
 ```
 src-tauri/src/
 ├── core/                          # Lógica de negocio pura
-│   ├── types.rs                   # Tipos de dominio
+│   ├── types.rs                   # Tipos de dominio (Entity, View)
+│   ├── persistence.rs             # Persistencia con PoloDB (Document)
 │   └── macro_manager.rs           # Servicio principal
 ├── infrastructure/                # Implementaciones de plataforma
-│   └── keyboard/
+│   └── input/
 │       ├── hook.rs                # Hook de Windows (WH_KEYBOARD_LL)
 │       ├── mapper.rs              # Mapeo de teclas VK ↔ String
-│       └── simulator.rs           # Simulación de teclas (SendInput)
+│       └── simulator.rs           # InputSimulator: teclado y ratón (SendInput)
 ├── adapters/                      # Conectores framework ↔ core
 │   └── commands.rs                # Adaptador Tauri → MacroManager
 └── lib.rs                         # Entry point, wiring
@@ -66,7 +68,7 @@ Servicio principal que gestiona el ciclo de vida de las macros:
 
 La capa `infrastructure/` contiene implementaciones específicas de Windows.
 
-#### `keyboard/hook.rs`
+#### `input/hook.rs`
 
 Implementa el hook de teclado de bajo nivel de Windows:
 
@@ -76,7 +78,7 @@ Implementa el hook de teclado de bajo nivel de Windows:
 - Notifica al `MacroManager` de cada evento
 - Bloquea teclas si la macro lo requiere
 
-#### `keyboard/mapper.rs`
+#### `input/mapper.rs`
 
 Mapeo bidireccional entre códigos virtuales de Windows (VK) y strings:
 
@@ -85,13 +87,14 @@ Mapeo bidireccional entre códigos virtuales de Windows (VK) y strings:
 - Usa `IndexMap` para mantener orden de inserción
 - Métodos: `string_to_vk()`, `vk_to_string()`, `strings_vec()`
 
-#### `keyboard/simulator.rs`
+#### `input/simulator.rs`
 
-Simulación de teclas usando la API moderna `SendInput`:
+`InputSimulator`: Simulación de teclado y ratón usando la API moderna `SendInput`:
 
-- Envía teclas por scan code (más confiable que VK)
-- Soporta duración de hold (tiempo entre keydown y keyup)
-- Reemplaza la API deprecated `keybd_event`
+- Para teclado: envía teclas por scan code (más confiable que VK)
+- Para ratón: usa `INPUT_MOUSE` con `MOUSEINPUT` para simular clicks
+- Soporta botones de ratón: izquierdo, derecho, central, X1, X2
+- Detecta automáticamente si el VK es teclado o ratón y usa la API correcta
 
 ### Capa Adapters (Conectores)
 
@@ -125,14 +128,14 @@ Adaptador que expone la API del `MacroManager` como comandos de Tauri:
 4. **Hook captura tecla**: Notifica al `MacroManager` con `on_key_down()`
 5. **MacroManager ejecuta**: Según el modo (Once/Hold/Toggle), ejecuta la acción o activa el thread de repetición
 6. **Thread de repetición**: Se despierta con `Condvar`, ejecuta acciones en loop, se duerme cuando se desactiva
-7. **Simulación**: `Keyboard::press_key()` envía las teclas al sistema
+7. **Simulación**: `InputSimulator::key_down()` envía las teclas o clicks al sistema
 
 ## Portabilidad
 
 La arquitectura en capas facilita la migración:
 
 - **Cambiar framework** (Electron, GTK, etc.): Solo reescribir `adapters/` y `lib.rs`
-- **Cambiar sistema operativo** (Linux, macOS): Solo reescribir `infrastructure/keyboard/`
+- **Cambiar sistema operativo** (Linux, macOS): Solo reescribir `infrastructure/input/`
 - **Core**: Se mantiene intacto en todos los casos
 
 ## Arquitectura del Frontend

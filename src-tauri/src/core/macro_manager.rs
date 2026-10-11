@@ -5,8 +5,8 @@ use std::time::Duration;
 
 use crate::core::types::{Action, ActionCallback, Macro, MacroView, Mode};
 use crate::core::persistence::Persistence;
-use crate::infrastructure::keyboard::mapper::KeyMapper;
-use crate::infrastructure::keyboard::simulator::Keyboard;
+use crate::infrastructure::input::mapper::KeyMapper;
+use crate::infrastructure::input::simulator::InputSimulator;
 
 pub struct RepeatState {
     pub active: bool,
@@ -446,9 +446,9 @@ impl MacroManager {
 
                     Some(Arc::new(move || {
                         if press {
-                            Keyboard::key_down(vk);
+                            InputSimulator::key_down(vk);
                         } else {
-                            Keyboard::key_up(vk);
+                            InputSimulator::key_up(vk);
                         }
                     }) as ActionCallback)
                 }
@@ -552,7 +552,8 @@ impl MacroInstance {
                                 }
                             }
 
-                            std::thread::sleep(Duration::from_millis(10));
+                            // prueba sin sleep...
+                            // std::thread::sleep(Duration::from_millis(10));
                         }
 
                         log::debug!("Repeat loop ended after {} iterations (vk={})", iteration, trigger_key);
