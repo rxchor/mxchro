@@ -14,7 +14,7 @@ import {
   ComboboxData,
 } from "@/components/ui/shadcn-io/combobox";
 import { KeyboardIcon, Plus, TimerIcon, ArrowDownToLine, ArrowUpFromLine, ArrowUpDown } from "lucide-react";
-import { ActionConfig } from "@/model/ActionConfig";
+import { Action } from "@/model/Action";
 import { getKeys, formattedKey } from "@/services/KeyListService";
 import { cn } from "@/lib/utils";
 
@@ -22,7 +22,7 @@ type ActionType = "key" | "wait";
 type KeyActionType = "both" | "press" | "release";
 
 interface AddActionFormProps {
-  onAdd: (actions: ActionConfig[]) => void;
+  onAdd: (actions: Action[]) => void;
 }
 
 export default function AddActionForm({ onAdd }: AddActionFormProps) {
@@ -46,7 +46,7 @@ export default function AddActionForm({ onAdd }: AddActionFormProps) {
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (type === "key" && key) {
-      const actions: ActionConfig[] = [];
+      const actions: Action[] = [];
       if (keyActionType === "both") {
         actions.push({ type: "key", key, press: true });
         actions.push({ type: "key", key, press: false });

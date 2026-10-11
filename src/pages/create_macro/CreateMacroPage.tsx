@@ -6,14 +6,14 @@ import MacroForm, {
 import ActionsList from "./components/ActionsList";
 import AddActionForm from "./components/AddActionForm";
 import { Button } from "@/components/ui/button";
-import { ActionConfig } from "@/model/ActionConfig";
+import { Action } from "@/model/Action";
 import { Mode } from "@/model/Mode";
 import { Macro } from "@/model/Macro";
 import { Save } from "lucide-react";
 import { addMacro, getMacro, updateMacro } from "@/services/MacroService";
 import { useNavigate, useLocation } from "react-router-dom";
 
-type ActionItem = { id: string; action: ActionConfig };
+type ActionItem = { id: string; action: Action };
 
 const initialConfig: MacroFormValues = {
   triggerKey: "",
@@ -57,7 +57,7 @@ export function CreateMacroPage() {
     }
   }, [location.state]);
 
-  function handleAdd(actions: ActionConfig[]) {
+  function handleAdd(actions: Action[]) {
     const newItems = actions.map(action => ({ id: newId(), action }));
     setActions((prev) => [...prev, ...newItems]);
   }

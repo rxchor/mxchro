@@ -4,7 +4,7 @@ mod infrastructure;
 
 use adapters::commands::Commands;
 use core::macro_manager::MacroManager;
-use core::types::{MacroConfig, MacroSummary};
+use core::types::{Macro, MacroView};
 use infrastructure::keyboard::hook::KeyboardHook;
 use once_cell::sync::Lazy;
 
@@ -16,7 +16,7 @@ fn get_vk_string_values() -> Vec<String> {
 }
 
 #[tauri::command]
-fn add_macro(dto: MacroConfig) -> bool {
+fn add_macro(dto: Macro) -> bool {
     Commands::new(&MACRO_MANAGER).add_macro(dto)
 }
 
@@ -36,17 +36,17 @@ fn disable_macro(trigger_key: String) -> bool {
 }
 
 #[tauri::command]
-fn list_macros() -> Vec<MacroSummary> {
+fn list_macros() -> Vec<MacroView> {
     Commands::new(&MACRO_MANAGER).list_macros()
 }
 
 #[tauri::command]
-fn get_macro(trigger_key: String) -> Option<MacroConfig> {
+fn get_macro(trigger_key: String) -> Option<Macro> {
     Commands::new(&MACRO_MANAGER).get_macro(trigger_key)
 }
 
 #[tauri::command]
-fn update_macro(old_trigger_key: String, dto: MacroConfig) -> bool {
+fn update_macro(old_trigger_key: String, dto: Macro) -> bool {
     Commands::new(&MACRO_MANAGER).update_macro(old_trigger_key, dto)
 }
 

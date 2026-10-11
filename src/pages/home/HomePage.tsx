@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { listMacros, deleteMacro, enableMacro, disableMacro, wipeData, type MacroSummary } from "@/services/MacroService";
+import { listMacros, deleteMacro, enableMacro, disableMacro, wipeData } from "@/services/MacroService";
+import { type MacroView } from "@/model/MacroView";
 import { formattedKey } from "@/services/KeyListService";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -7,7 +8,7 @@ import { Trash2, RefreshCw, Power, Pencil, Eraser } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 export function HomePage() {
-  const [macros, setMacros] = useState<MacroSummary[]>([]);
+  const [macros, setMacros] = useState<MacroView[]>([]);
   const [loading, setLoading] = useState(true);
   const [wiping, setWiping] = useState(false);
   const navigate = useNavigate();

@@ -86,21 +86,50 @@ Macros can be edited via `update_macro` command. The system:
 
 ### Data Persistence
 
-Macros persist to JSON file, configurable via `.env`:
+Macros persist to an embedded PoloDB database (document-oriented, BSON format), configurable via `.env`:
 
 ```env
 # Development
-MACROS_FILE_PATH=./macros.json
+MACROS_FILE_PATH=./macros.polodb
 
 # Production (default if .env not set)
-%APPDATA%/mxchro/macros.json
+%APPDATA%/mxchro/macros.polodb
 ```
 
 Implementation:
-- `core/persistence.rs`: Handles load/save/wipe operations
+- `core/persistence.rs`: Handles PoloDB operations (load_all/insert/delete/replace/set_enabled/wipe_data)
+- `trigger_key` used as document `_id` (natural unique key)
 - Auto-load on startup via `MacroManager::new()`
-- Auto-save after every CRUD operation (add/update/delete/enable/disable)
-- `wipe_data` command available for clearing corrupt data during development
+- Granular operations after CRUD (no full file rewrite)
+- `set_enabled` uses partial update with `$set` operator
+- `replace` uses delete + insert (trigger_key can change during edit)
+- `wipe_data` command available for clearing data during development
+
+### Naming Conventions
+
+**Backend (Rust):**
+- **Entity**: Domain models in `core/types.rs` (e.g., `Macro`, `Action`, `Mode`)
+- **Document**: PoloDB wrapper in `persistence.rs` (e.g., `MacroDocument` with `_id` field)
+- **View**: Projections for UI in `core/types.rs` (e.g., `MacroView`)
+
+**Frontend (TypeScript):**
+- **Model**: Domain types in `src/model/` (e.g., `Macro`, `Action`, `Mode`, `MacroView`)
+- **Response**: API response types from backend in `src/services/` (e.g., `MacroResponse`, `MacroViewResponse`, `ActionResponse`)
+
+**Conversion Pattern:**
+- Backend uses `snake_case` for JSON serialization
+- Frontend `Response` types match backend `snake_case`
+- Frontend `Model` types use `camelCase`
+- Conversion functions in `MacroService.ts`: `fromSnakeCase()` converts Response → Model
+
+**Example Flow:**
+```
+Backend: MacroView (snake_case in JSON)
+    ↓
+Frontend: MacroViewResponse (snake_case interface)
+    ↓ fromSnakeCase()
+Frontend: MacroView (camelCase model for UI)
+```
 
 ### UI Features
 

@@ -1,6 +1,10 @@
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
+// ═══════════════════════════════════════════════════════════════
+// ENTITIES (core/types.rs) - Dominio puro, sin dependencias externas
+// ═══════════════════════════════════════════════════════════════
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Mode {
     Toggle,
@@ -10,7 +14,7 @@ pub enum Mode {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type")]
-pub enum ActionConfig {
+pub enum Action {
     #[serde(rename = "key")]
     Key { key: String, press: bool },
     #[serde(rename = "wait")]
@@ -18,17 +22,21 @@ pub enum ActionConfig {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct MacroConfig {
+pub struct Macro {
     pub trigger_key: String,
     pub mode: Mode,
-    pub actions: Vec<ActionConfig>,
+    pub actions: Vec<Action>,
     pub block_original_event: bool,
     pub ignore_injected_keys: bool,
     pub enabled: bool,
 }
 
+// ═══════════════════════════════════════════════════════════════
+// VIEWS - Proyecciones para UI
+// ═══════════════════════════════════════════════════════════════
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct MacroSummary {
+pub struct MacroView {
     pub trigger_key: String,
     pub mode: Mode,
     pub actions_count: usize,
@@ -37,4 +45,4 @@ pub struct MacroSummary {
     pub enabled: bool,
 }
 
-pub type Action = Arc<dyn Fn() + Send + Sync + 'static>;
+pub type ActionCallback = Arc<dyn Fn() + Send + Sync + 'static>;

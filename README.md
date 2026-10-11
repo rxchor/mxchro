@@ -36,13 +36,16 @@ La capa `core/` contiene la lógica de negocio pura, completamente independiente
 
 #### `types.rs`
 
-Define los tipos de dominio:
+Define los tipos de dominio siguiendo las convenciones de arquitectura limpia:
 
+**Entities (Dominio puro):**
 - **`Mode`**: Enum con los modos de activación (Toggle, Hold, Once)
-- **`KeyEvent`**: Representa una acción (tecla con hold opcional, o sleep)
-- **`MacroConfig`**: Configuración completa de una macro
-- **`MacroSummary`**: Resumen de una macro para listar
-- **`Action`**: Closure que ejecuta una acción
+- **`Action`**: Enum con las acciones posibles (Key o Wait)
+- **`Macro`**: Configuración completa de una macro
+- **`ActionCallback`**: Alias de tipo para closures que ejecutan acciones
+
+**Views (Proyecciones para UI):**
+- **`MacroView`**: Proyección parcial de una macro para listar (sin las acciones completas)
 
 #### `macro_manager.rs`
 
@@ -117,7 +120,7 @@ Adaptador que expone la API del `MacroManager` como comandos de Tauri:
 ## Flujo de Ejecución
 
 1. **Inicio**: Se crea el `MacroManager` y se instala el hook de teclado
-2. **Usuario crea macro**: Frontend envía `MacroConfig` vía comando Tauri
+2. **Usuario crea macro**: Frontend envía `Macro` vía comando Tauri
 3. **MacroManager procesa**: Convierte strings a VK codes, construye acciones, spawnea thread si está enabled
 4. **Hook captura tecla**: Notifica al `MacroManager` con `on_key_down()`
 5. **MacroManager ejecuta**: Según el modo (Once/Hold/Toggle), ejecuta la acción o activa el thread de repetición
@@ -132,6 +135,37 @@ La arquitectura en capas facilita la migración:
 - **Cambiar sistema operativo** (Linux, macOS): Solo reescribir `infrastructure/keyboard/`
 - **Core**: Se mantiene intacto en todos los casos
 
+## Arquitectura del Frontend
+
+El frontend está organizado siguiendo las mismas convenciones de nomenclatura:
+
+```
+src/
+├── model/                         # Tipos de dominio (camelCase)
+│   ├── Macro.ts                   # Entity: Macro
+│   ├── Action.ts                  # Entity: Action
+│   ├── Mode.ts                    # Entity: Mode
+│   └── MacroView.ts               # View: MacroView
+├── services/                      # Servicios y API
+│   ├── MacroService.ts            # Conversión Response → Model
+│   └── KeyListService.ts          # Mapeo de teclas
+├── components/                    # Componentes UI
+│   ├── ui/                        # Componentes shadcn/ui
+│   └── ...
+└── pages/                         # Páginas de la aplicación
+    ├── home/
+    └── create_macro/
+```
+
+**Convención de conversión:**
+```
+Backend: Macro (snake_case en JSON)
+    ↓
+Frontend: MacroResponse (snake_case interface)
+    ↓ fromSnakeCase()
+Frontend: Macro (camelCase model para UI)
+```
+
 ## Tecnologías
 
 - **Frontend**: React 19 + TypeScript + Vite + Tailwind CSS + shadcn/ui
@@ -139,9 +173,38 @@ La arquitectura en capas facilita la migración:
 - **Framework**: Tauri 2.0
 - **Dependencias clave**:
   - `windows`: API de Windows para hooks y simulación
+  - `polodb_core`: Base de datos embebida (documentos BSON sobre RocksDB)
   - `indexmap`: Mapeo ordenado de teclas
   - `once_cell`: Singletons thread-safe
   - `serde`: Serialización para comunicación frontend-backend
+
+## Requisitos
+
+Para desarrollar y compilar la aplicación necesitas:
+
+### Windows
+
+1. **Rust**: Instala desde [rustup.rs](https://rustup.rs/)
+2. **Node.js**: Versión 18 o superior desde [nodejs.org](https://nodejs.org/)
+3. **pnpm**: Gestor de paquetes
+   ```bash
+   npm install -g pnpm
+   ```
+4. **Microsoft Visual C++ Build Tools**: Descarga desde [Visual Studio Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/)
+   - Durante la instalación, selecciona "Desktop development with C++"
+5. **LLVM**: Necesario para compilar RocksDB (backend de PoloDB)
+   - Descarga desde [LLVM releases](https://github.com/llvm/llvm-project/releases)
+   - Archivo: `LLVM-XX.X.X-win64.exe`
+   - **Importante**: Marca "Add LLVM to the system PATH for all users" durante la instalación
+   - Reinicia tu terminal después de instalar
+
+### Verificar instalación
+
+```bash
+rustc --version      # Rust
+node --version       # Node.js
+pnpm --version       # pnpm
+```
 
 ## Desarrollo
 
@@ -149,12 +212,20 @@ La arquitectura en capas facilita la migración:
 # Instalar dependencias
 pnpm install
 
-# Desarrollo
+# Desarrollo (log level: info)
 pnpm tauri dev
 
-# Build
+# Desarrollo con más detalle (log level: debug)
+pnpm tauri:dev:debug
+
+# Desarrollo con máximo detalle (log level: trace)
+pnpm tauri:dev:trace
+
+# Build de producción
 pnpm tauri build
 ```
+
+**Nota**: La primera compilación tarda varios minutos porque RocksDB (el motor de almacenamiento de PoloDB) se compila desde source. Las siguientes compilaciones son rápidas.
 
 ## Licencia
 

@@ -1,10 +1,10 @@
-import { ActionConfig } from "./ActionConfig";
+import { Action } from "./Action";
 import { Mode } from "./Mode";
 
 export interface Macro {
     triggerKey: string;
     mode: Mode;
-    actions: ActionConfig[],
+    actions: Action[],
     blockOriginalKey: boolean;
     ignoreInjectedKeys: boolean;
     enabled: boolean;

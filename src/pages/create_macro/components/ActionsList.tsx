@@ -20,7 +20,7 @@ import { CSS } from "@dnd-kit/utilities";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { ActionConfig } from "@/model/ActionConfig";
+import { Action } from "@/model/Action";
 import { formattedKey } from "@/services/KeyListService";
 import {
   GripVertical,
@@ -30,7 +30,7 @@ import {
   Timer,
 } from "lucide-react";
 
-type ActionItem = { id: string; action: ActionConfig };
+type ActionItem = { id: string; action: Action };
 
 interface ActionsListProps {
   actions: ActionItem[];
@@ -122,7 +122,7 @@ function SortableActionItem({
   onRemove,
 }: {
   id: string;
-  action: ActionConfig;
+  action: Action;
   onRemove: () => void;
 }) {
   const {
@@ -166,11 +166,11 @@ function ActionCard({
   action,
   className,
 }: {
-  action: ActionConfig;
+  action: Action;
   className?: string;
 }) {
   function actionIcon(
-    action: ActionConfig,
+    action: Action,
     divClassName: string,
     iconClassName: string,
   ): ReactElement {
@@ -191,7 +191,7 @@ function ActionCard({
     );
   }
 
-  function actionLabel(action: ActionConfig, className: string): ReactElement {
+  function actionLabel(action: Action, className: string): ReactElement {
     return (
       <span className={className}>
         {(() => {
@@ -205,7 +205,7 @@ function ActionCard({
     );
   }
 
-  function actionText(action: ActionConfig): ReactElement {
+  function actionText(action: Action): ReactElement {
     if (action.type === "key") {
       return (
         <span className="font-semibold text-sm px-2 py-0.5 rounded bg-primary text-primary-foreground whitespace-nowrap">

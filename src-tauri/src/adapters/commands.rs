@@ -1,5 +1,5 @@
 use crate::core::macro_manager::MacroManager;
-use crate::core::types::{MacroConfig, MacroSummary};
+use crate::core::types::{Macro, MacroView};
 
 pub struct Commands {
     manager: &'static MacroManager,
@@ -14,16 +14,16 @@ impl Commands {
         self.manager.get_available_keys()
     }
 
-    pub fn add_macro(&self, config: MacroConfig) -> bool {
-        self.manager.add_macro(config)
+    pub fn add_macro(&self, macro_entity: Macro) -> bool {
+        self.manager.add_macro(macro_entity)
     }
 
-    pub fn get_macro(&self, trigger_key: String) -> Option<MacroConfig> {
+    pub fn get_macro(&self, trigger_key: String) -> Option<Macro> {
         self.manager.get_macro(&trigger_key)
     }
 
-    pub fn update_macro(&self, old_trigger_key: String, config: MacroConfig) -> bool {
-        self.manager.update_macro(&old_trigger_key, config)
+    pub fn update_macro(&self, old_trigger_key: String, macro_entity: Macro) -> bool {
+        self.manager.update_macro(&old_trigger_key, macro_entity)
     }
 
     pub fn delete_macro(&self, trigger_key: String) -> bool {
@@ -38,7 +38,7 @@ impl Commands {
         self.manager.disable_macro(&trigger_key)
     }
 
-    pub fn list_macros(&self) -> Vec<MacroSummary> {
+    pub fn list_macros(&self) -> Vec<MacroView> {
         self.manager.list_macros()
     }
 
