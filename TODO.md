@@ -21,7 +21,7 @@
 - [ ] Detección de teclas en UI (input que detecta tecla presionada en lugar de selección manual)
 - [x] ~~Velocidad de repetición configurable para Hold/Toggle~~ → Se controla con WAITs en las acciones (ej: Click Press → Click Release → Wait 10ms = 100 clicks/segundo)
 - [ ] Hotkey para activar/desactivar macros individuales (atajo de teclado global para controlar macros sin abrir la interfaz)
-- [ ] Colecciones para agrupar macros (permite organizar macros y activar/desactivar grupos completos en masa)
+- [x] ~~Colecciones para agrupar macros~~ → Implementado con soporte para crear/eliminar colecciones, mover macros entre colecciones, y activar/desactivar colecciones completas en masa
 
 ## ✅ Completado
 

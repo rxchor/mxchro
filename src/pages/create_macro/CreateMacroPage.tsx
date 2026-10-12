@@ -9,8 +9,10 @@ import { Button } from "@/components/ui/button";
 import { Action } from "@/model/Action";
 import { Mode } from "@/model/Mode";
 import { Macro } from "@/model/Macro";
+import { CollectionView } from "@/model/Collection";
 import { Save } from "lucide-react";
 import { addMacro, getMacro, updateMacro } from "@/services/MacroService";
+import { listCollections } from "@/services/CollectionService";
 import { useNavigate, useLocation } from "react-router-dom";
 
 type ActionItem = { id: string; action: Action };
@@ -21,6 +23,7 @@ const initialConfig: MacroFormValues = {
   blockOriginalEvent: true,
   ignoreInjectedKeys: true,
   enabled: true,
+  collectionId: null,
 };
 
 function newId() {
@@ -30,11 +33,17 @@ function newId() {
 export function CreateMacroPage() {
   const [config, setConfig] = useState<MacroFormValues>(initialConfig);
   const [actions, setActions] = useState<ActionItem[]>([]);
+  const [collections, setCollections] = useState<CollectionView[]>([]);
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(false);
   const [originalTriggerKey, setOriginalTriggerKey] = useState<string | null>(null);
   const navigate = useNavigate();
   const location = useLocation();
+
+  useEffect(() => {
+    // Load collections
+    listCollections().then(setCollections).catch(console.error);
+  }, []);
 
   useEffect(() => {
     const editTriggerKey = location.state?.editTriggerKey;
@@ -49,6 +58,7 @@ export function CreateMacroPage() {
             blockOriginalEvent: macro.blockOriginalKey,
             ignoreInjectedKeys: macro.ignoreInjectedKeys,
             enabled: macro.enabled,
+            collectionId: macro.collectionId,
           });
           setActions(macro.actions.map(action => ({ id: newId(), action })));
         }
@@ -87,6 +97,7 @@ export function CreateMacroPage() {
       blockOriginalKey: result.data.blockOriginalEvent,
       ignoreInjectedKeys: result.data.ignoreInjectedKeys,
       enabled: result.data.enabled,
+      collectionId: result.data.collectionId,
     };
     setSaving(true);
     try {
@@ -128,7 +139,7 @@ export function CreateMacroPage() {
                   : "Set up how the macro triggers and behaves"}
               </p>
             </header>
-            <MacroForm values={config} onChange={setConfig} />
+            <MacroForm values={config} onChange={setConfig} collections={collections} />
           </section>
 
           <section className="grid grid-cols-1 lg:grid-cols-3 gap-6 min-h-[400px]">

@@ -7,4 +7,5 @@ export interface MacroView {
     blockOriginalEvent: boolean;
     ignoreInjectedKeys: boolean;
     enabled: boolean;
+    collectionId: string | null;
 }

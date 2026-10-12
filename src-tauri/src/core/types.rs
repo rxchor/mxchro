@@ -29,6 +29,14 @@ pub struct Macro {
     pub block_original_event: bool,
     pub ignore_injected_keys: bool,
     pub enabled: bool,
+    pub collection_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Collection {
+    pub id: String,
+    pub name: String,
+    pub enabled: bool,
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -43,6 +51,15 @@ pub struct MacroView {
     pub block_original_event: bool,
     pub ignore_injected_keys: bool,
     pub enabled: bool,
+    pub collection_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CollectionView {
+    pub id: String,
+    pub name: String,
+    pub enabled: bool,
+    pub macros_count: usize,
 }
 
 pub type ActionCallback = Arc<dyn Fn() + Send + Sync + 'static>;

@@ -1,5 +1,3 @@
-use std::path::PathBuf;
-
 use polodb_core::{CollectionT, Database};
 use polodb_core::bson::doc;
 use serde::{Deserialize, Serialize};
@@ -15,6 +13,7 @@ struct MacroDocument {
     block_original_event: bool,
     ignore_injected_keys: bool,
     enabled: bool,
+    collection_id: Option<String>,
 }
 
 impl From<Macro> for MacroDocument {
@@ -26,6 +25,7 @@ impl From<Macro> for MacroDocument {
             block_original_event: m.block_original_event,
             ignore_injected_keys: m.ignore_injected_keys,
             enabled: m.enabled,
+            collection_id: m.collection_id,
         }
     }
 }
@@ -39,37 +39,18 @@ impl From<MacroDocument> for Macro {
             block_original_event: doc.block_original_event,
             ignore_injected_keys: doc.ignore_injected_keys,
             enabled: doc.enabled,
+            collection_id: doc.collection_id,
         }
     }
 }
 
-pub struct Persistence {
+pub struct MacroRepository {
     db: Database,
 }
 
-impl Persistence {
-    pub fn new() -> Self {
-        let db_path = Self::get_db_path();
-
-        log::info!("Opening PoloDB at: {:?}", db_path);
-        let db = Database::open_path(&db_path).expect("Failed to open PoloDB database");
-
-        Persistence { db }
-    }
-
-    fn get_db_path() -> PathBuf {
-        // Intentar leer desde .env
-        if let Ok(path) = std::env::var("MACROS_FILE_PATH") {
-            return PathBuf::from(path).with_extension("polodb");
-        }
-
-        // Producción: ./macros.polodb
-        if let Ok(current_dir) = std::env::current_dir() {
-            return current_dir.join("macros.polodb");
-        }
-
-        // Fallback: directorio actual
-        PathBuf::from("macros.polodb")
+impl MacroRepository {
+    pub fn new(db: Database) -> Self {
+        MacroRepository { db }
     }
 
     fn macros_collection(&self) -> polodb_core::Collection<MacroDocument> {
@@ -154,8 +135,8 @@ impl Persistence {
     pub fn wipe_data(&self) -> Result<(), String> {
         let collection = self.macros_collection();
         collection.delete_many(doc! {}).map_err(|e| {
-            log::error!("Failed to wipe PoloDB: {}", e);
-            format!("Failed to wipe: {}", e)
+            log::error!("Failed to wipe macros from PoloDB: {}", e);
+            format!("Failed to wipe macros: {}", e)
         })?;
         log::info!("Wiped all macros from PoloDB");
         Ok(())

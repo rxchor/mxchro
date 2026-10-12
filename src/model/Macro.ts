@@ -8,4 +8,5 @@ export interface Macro {
     blockOriginalKey: boolean;
     ignoreInjectedKeys: boolean;
     enabled: boolean;
+    collectionId: string | null;
 }

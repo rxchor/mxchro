@@ -1,5 +1,5 @@
 use crate::core::macro_manager::MacroManager;
-use crate::core::types::{Macro, MacroView};
+use crate::core::types::{CollectionView, Macro, MacroView};
 
 pub struct Commands {
     manager: &'static MacroManager,
@@ -9,6 +9,8 @@ impl Commands {
     pub fn new(manager: &'static MacroManager) -> Self {
         Commands { manager }
     }
+
+    // ── Macros ──────────────────────────────────────────────
 
     pub fn get_available_keys(&self) -> Vec<String> {
         self.manager.get_available_keys()
@@ -41,6 +43,34 @@ impl Commands {
     pub fn list_macros(&self) -> Vec<MacroView> {
         self.manager.list_macros()
     }
+
+    pub fn move_macro_to_collection(&self, trigger_key: String, collection_id: Option<String>) -> bool {
+        self.manager.move_macro_to_collection(&trigger_key, collection_id)
+    }
+
+    // ── Collections ─────────────────────────────────────────
+
+    pub fn create_collection(&self, name: String) -> Option<String> {
+        self.manager.create_collection(name)
+    }
+
+    pub fn delete_collection(&self, collection_id: String) -> bool {
+        self.manager.delete_collection(&collection_id)
+    }
+
+    pub fn enable_collection(&self, collection_id: String) -> bool {
+        self.manager.enable_collection(&collection_id)
+    }
+
+    pub fn disable_collection(&self, collection_id: String) -> bool {
+        self.manager.disable_collection(&collection_id)
+    }
+
+    pub fn list_collections(&self) -> Vec<CollectionView> {
+        self.manager.list_collections()
+    }
+
+    // ── Utility ─────────────────────────────────────────────
 
     pub fn wipe_data(&self) -> Result<(), String> {
         self.manager.wipe_data()

@@ -65,7 +65,7 @@ export default function ActionsList({
 
   if (actions.length === 0) {
     return (
-      <div className="bg-primary-foreground rounded-md p-5 h-[40vh] flex items-center justify-center text-muted-foreground text-sm">
+      <div className="bg-primary-foreground rounded-md p-5 h-[50vh] flex items-center justify-center text-muted-foreground text-sm">
         No actions yet. Use the form on the right to add one.
       </div>
     );
@@ -74,7 +74,7 @@ export default function ActionsList({
   const activeItem = activeId ? actions.find((a) => a.id === activeId) : null;
 
   return (
-    <div className="bg-primary-foreground rounded-md p-5 flex flex-col h-[40vh]">
+    <div className="bg-primary-foreground rounded-md p-5 flex flex-col h-[50vh]">
       <DndContext
         sensors={sensors}
         collisionDetection={closestCenter}

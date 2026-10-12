@@ -25,6 +25,7 @@ serde_json = "1"
 bimap = "0.6.3"
 indexmap = "2.11.4"
 polodb_core = "5.3.0"
+uuid = { version = "1.0", features = ["v4"] }
 
 # Depedencies for key simulation, WINDOWS ONLY
 windows = {version = "0.62.1", features = ["Win32_UI_Input_KeyboardAndMouse", "Win32_UI_WindowsAndMessaging", "Win32_UI_Accessibility", "Win32_Foundation"] }

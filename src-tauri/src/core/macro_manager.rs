@@ -3,7 +3,7 @@ use std::sync::{Arc, Condvar, Mutex, RwLock};
 use std::thread::JoinHandle;
 use std::time::Duration;
 
-use crate::core::types::{Action, ActionCallback, Macro, MacroView, Mode};
+use crate::core::types::{Action, ActionCallback, Collection, CollectionView, Macro, MacroView, Mode};
 use crate::core::persistence::Persistence;
 use crate::infrastructure::input::mapper::KeyMapper;
 use crate::infrastructure::input::simulator::InputSimulator;
@@ -22,6 +22,7 @@ struct MacroInstance {
     block_original_event: bool,
     ignore_injected_keys: bool,
     enabled: bool,
+    collection_id: Option<String>,
     actions_count: usize,
     repeat_state: Arc<(Mutex<RepeatState>, Condvar)>,
     thread_handle: Arc<Mutex<Option<JoinHandle<()>>>>,
@@ -34,6 +35,7 @@ pub struct KeyEventResult {
 
 pub struct MacroManager {
     macros: RwLock<HashMap<u16, MacroInstance>>,
+    collections: RwLock<HashMap<String, Collection>>,
     key_mapper: &'static KeyMapper,
     persistence: Persistence,
 }
@@ -42,18 +44,29 @@ impl MacroManager {
     pub fn new() -> Self {
         let manager = MacroManager {
             macros: RwLock::new(HashMap::new()),
+            collections: RwLock::new(HashMap::new()),
             key_mapper: KeyMapper::instance(),
             persistence: Persistence::new(),
         };
         
-        // Cargar macros desde el archivo
-        manager.load_from_file();
+        // Cargar macros y colecciones desde la base de datos
+        manager.load_from_persistence();
         
         manager
     }
 
-    pub fn load_from_file(&self) {
-        let configs = self.persistence.load_all();
+    pub fn load_from_persistence(&self) {
+        // Cargar colecciones primero
+        let collections = self.persistence.collection_repo.load_all();
+        let mut coll_map = self.collections.write().unwrap();
+        for collection in collections {
+            coll_map.insert(collection.id.clone(), collection);
+        }
+        log::info!("Loaded {} collections from persistence", coll_map.len());
+        drop(coll_map);
+
+        // Cargar macros
+        let configs = self.persistence.macro_repo.load_all();
         let mut macros = self.macros.write().unwrap();
         
         for config in configs {
@@ -83,6 +96,7 @@ impl MacroManager {
             block_original_event: instance.block_original_event,
             ignore_injected_keys: instance.ignore_injected_keys,
             enabled: instance.enabled,
+            collection_id: instance.collection_id.clone(),
         }
     }
 
@@ -93,11 +107,174 @@ impl MacroManager {
             instance.stop_repeat_thread();
         }
         
-        // Limpiar el archivo
+        // Limpiar colecciones
+        let mut collections = self.collections.write().unwrap();
+        collections.clear();
+        
+        // Limpiar la base de datos
         self.persistence.wipe_data()?;
         
-        log::info!("Wiped all macro data");
+        log::info!("Wiped all macro and collection data");
         Ok(())
+    }
+
+    pub fn create_collection(&self, name: String) -> Option<String> {
+        let id = uuid::Uuid::new_v4().to_string();
+        let collection = Collection {
+            id: id.clone(),
+            name,
+            enabled: true,
+        };
+
+        if let Err(e) = self.persistence.collection_repo.insert(&collection) {
+            log::error!("Failed to persist new collection: {}", e);
+            return None;
+        }
+
+        let mut collections = self.collections.write().unwrap();
+        collections.insert(id.clone(), collection);
+        log::info!("Collection created: {}", id);
+        Some(id)
+    }
+
+    pub fn delete_collection(&self, collection_id: &str) -> bool {
+        let mut collections = self.collections.write().unwrap();
+        if collections.remove(collection_id).is_none() {
+            log::warn!("delete_collection: collection '{}' not found", collection_id);
+            return false;
+        }
+
+        if let Err(e) = self.persistence.collection_repo.delete(collection_id) {
+            log::error!("Failed to persist collection deletion: {}", e);
+            return false;
+        }
+
+        // Desasociar macros de esta colección
+        let mut macros = self.macros.write().unwrap();
+        for instance in macros.values_mut() {
+            if instance.collection_id.as_deref() == Some(collection_id) {
+                instance.collection_id = None;
+            }
+        }
+
+        log::info!("Collection deleted: {}", collection_id);
+        true
+    }
+
+    pub fn enable_collection(&self, collection_id: &str) -> bool {
+        let collections = self.collections.read().unwrap();
+        if !collections.contains_key(collection_id) {
+            log::warn!("enable_collection: collection '{}' not found", collection_id);
+            return false;
+        }
+        drop(collections);
+
+        if let Err(e) = self.persistence.collection_repo.set_enabled(collection_id, true) {
+            log::error!("Failed to persist collection enable: {}", e);
+            return false;
+        }
+
+        // Habilitar todas las macros de la colección
+        let mut macros = self.macros.write().unwrap();
+        for instance in macros.values_mut() {
+            if instance.collection_id.as_deref() == Some(collection_id) {
+                instance.enable();
+            }
+        }
+
+        let mut collections = self.collections.write().unwrap();
+        if let Some(collection) = collections.get_mut(collection_id) {
+            collection.enabled = true;
+        }
+
+        log::info!("Collection enabled: {}", collection_id);
+        true
+    }
+
+    pub fn disable_collection(&self, collection_id: &str) -> bool {
+        let collections = self.collections.read().unwrap();
+        if !collections.contains_key(collection_id) {
+            log::warn!("disable_collection: collection '{}' not found", collection_id);
+            return false;
+        }
+        drop(collections);
+
+        if let Err(e) = self.persistence.collection_repo.set_enabled(collection_id, false) {
+            log::error!("Failed to persist collection disable: {}", e);
+            return false;
+        }
+
+        // Deshabilitar todas las macros de la colección
+        let mut macros = self.macros.write().unwrap();
+        for instance in macros.values_mut() {
+            if instance.collection_id.as_deref() == Some(collection_id) {
+                instance.disable();
+            }
+        }
+
+        let mut collections = self.collections.write().unwrap();
+        if let Some(collection) = collections.get_mut(collection_id) {
+            collection.enabled = false;
+        }
+
+        log::info!("Collection disabled: {}", collection_id);
+        true
+    }
+
+    pub fn list_collections(&self) -> Vec<CollectionView> {
+        let collections = self.collections.read().unwrap();
+        let macros = self.macros.read().unwrap();
+
+        collections
+            .values()
+            .map(|c| {
+                let macros_count = macros
+                    .values()
+                    .filter(|m| m.collection_id.as_deref() == Some(&c.id))
+                    .count();
+                CollectionView {
+                    id: c.id.clone(),
+                    name: c.name.clone(),
+                    enabled: c.enabled,
+                    macros_count,
+                }
+            })
+            .collect()
+    }
+
+    pub fn move_macro_to_collection(&self, trigger_key: &str, collection_id: Option<String>) -> bool {
+        let vk = match self.key_mapper.string_to_vk(trigger_key) {
+            Some(vk) => vk,
+            None => {
+                log::warn!("move_macro_to_collection: trigger key '{}' not recognized", trigger_key);
+                return false;
+            }
+        };
+
+        let mut macros = self.macros.write().unwrap();
+        if let Some(instance) = macros.get_mut(&vk) {
+            let old_collection_id = instance.collection_id.clone();
+            instance.collection_id = collection_id.clone();
+
+            let config = self.build_config(instance);
+            drop(macros);
+
+        if let Err(e) = self.persistence.macro_repo.replace(trigger_key, &config) {
+            log::error!("Failed to persist macro move: {}", e);
+            // Revertir en memoria
+            let mut macros = self.macros.write().unwrap();
+            if let Some(instance) = macros.get_mut(&vk) {
+                instance.collection_id = old_collection_id;
+            }
+            return false;
+        }
+
+            log::info!("Macro '{}' moved to collection {:?}", trigger_key, collection_id);
+            true
+        } else {
+            log::warn!("move_macro_to_collection: macro with trigger key '{}' not found", trigger_key);
+            false
+        }
     }
 
     fn create_instance(&self, macro_entity: Macro) -> MacroInstance {
@@ -123,6 +300,7 @@ impl MacroManager {
             block_original_event: macro_entity.block_original_event,
             ignore_injected_keys: macro_entity.ignore_injected_keys,
             enabled: macro_entity.enabled,
+            collection_id: macro_entity.collection_id.clone(),
             actions_count,
             repeat_state,
             thread_handle: Arc::new(Mutex::new(None)),
@@ -154,7 +332,7 @@ impl MacroManager {
         macros.insert(vk, instance);
         drop(macros);
 
-        if let Err(e) = self.persistence.insert(&config) {
+        if let Err(e) = self.persistence.macro_repo.insert(&config) {
             log::error!("Failed to persist new macro: {}", e);
         }
         true
@@ -174,6 +352,7 @@ impl MacroManager {
             block_original_event: instance.block_original_event,
             ignore_injected_keys: instance.ignore_injected_keys,
             enabled: instance.enabled,
+            collection_id: instance.collection_id.clone(),
         })
     }
 
@@ -233,6 +412,7 @@ impl MacroManager {
             block_original_event: macro_entity.block_original_event,
             ignore_injected_keys: macro_entity.ignore_injected_keys,
             enabled: macro_entity.enabled,
+            collection_id: macro_entity.collection_id.clone(),
             actions_count,
             repeat_state,
             thread_handle: Arc::new(Mutex::new(None)),
@@ -248,7 +428,7 @@ impl MacroManager {
         macros.insert(new_vk, instance);
         drop(macros);
 
-        if let Err(e) = self.persistence.replace(old_trigger_key, &macro_entity) {
+        if let Err(e) = self.persistence.macro_repo.replace(old_trigger_key, &macro_entity) {
             log::error!("Failed to persist macro update: {}", e);
         }
         true
@@ -269,7 +449,7 @@ impl MacroManager {
             instance.stop_repeat_thread();
             drop(macros);
 
-            if let Err(e) = self.persistence.delete(trigger_key) {
+            if let Err(e) = self.persistence.macro_repo.delete(trigger_key) {
                 log::error!("Failed to persist macro deletion: {}", e);
             }
             true
@@ -294,7 +474,7 @@ impl MacroManager {
             instance.enable();
             drop(macros);
 
-            if let Err(e) = self.persistence.set_enabled(trigger_key, true) {
+            if let Err(e) = self.persistence.macro_repo.set_enabled(trigger_key, true) {
                 log::error!("Failed to persist enable for '{}': {}", trigger_key, e);
             }
             true
@@ -319,7 +499,7 @@ impl MacroManager {
             instance.disable();
             drop(macros);
 
-            if let Err(e) = self.persistence.set_enabled(trigger_key, false) {
+            if let Err(e) = self.persistence.macro_repo.set_enabled(trigger_key, false) {
                 log::error!("Failed to persist disable for '{}': {}", trigger_key, e);
             }
             true
@@ -340,6 +520,7 @@ impl MacroManager {
                 block_original_event: m.block_original_event,
                 ignore_injected_keys: m.ignore_injected_keys,
                 enabled: m.enabled,
+                collection_id: m.collection_id.clone(),
             })
             .collect()
     }

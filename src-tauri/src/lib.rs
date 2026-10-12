@@ -4,7 +4,7 @@ mod infrastructure;
 
 use adapters::commands::Commands;
 use core::macro_manager::MacroManager;
-use core::types::{Macro, MacroView};
+use core::types::{CollectionView, Macro, MacroView};
 use infrastructure::input::hook::KeyboardHook;
 use once_cell::sync::Lazy;
 
@@ -55,6 +55,38 @@ fn wipe_data() -> Result<(), String> {
     Commands::new(&MACRO_MANAGER).wipe_data()
 }
 
+// ── Collections ─────────────────────────────────────────────
+
+#[tauri::command]
+fn create_collection(name: String) -> Option<String> {
+    Commands::new(&MACRO_MANAGER).create_collection(name)
+}
+
+#[tauri::command]
+fn delete_collection(collection_id: String) -> bool {
+    Commands::new(&MACRO_MANAGER).delete_collection(collection_id)
+}
+
+#[tauri::command]
+fn enable_collection(collection_id: String) -> bool {
+    Commands::new(&MACRO_MANAGER).enable_collection(collection_id)
+}
+
+#[tauri::command]
+fn disable_collection(collection_id: String) -> bool {
+    Commands::new(&MACRO_MANAGER).disable_collection(collection_id)
+}
+
+#[tauri::command]
+fn list_collections() -> Vec<CollectionView> {
+    Commands::new(&MACRO_MANAGER).list_collections()
+}
+
+#[tauri::command]
+fn move_macro_to_collection(trigger_key: String, collection_id: Option<String>) -> bool {
+    Commands::new(&MACRO_MANAGER).move_macro_to_collection(trigger_key, collection_id)
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     dotenv::dotenv().ok();
@@ -75,6 +107,12 @@ pub fn run() {
             disable_macro,
             list_macros,
             wipe_data,
+            create_collection,
+            delete_collection,
+            enable_collection,
+            disable_collection,
+            list_collections,
+            move_macro_to_collection,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

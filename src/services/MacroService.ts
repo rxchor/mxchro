@@ -10,6 +10,7 @@ interface MacroResponse {
     block_original_event: boolean;
     ignore_injected_keys: boolean;
     enabled: boolean;
+    collection_id: string | null;
 }
 
 interface MacroViewResponse {
@@ -19,6 +20,7 @@ interface MacroViewResponse {
     block_original_event: boolean;
     ignore_injected_keys: boolean;
     enabled: boolean;
+    collection_id: string | null;
 }
 
 interface ActionResponse {
@@ -49,6 +51,7 @@ function toSnakeCase(macro: Macro): MacroResponse {
         block_original_event: macro.blockOriginalKey,
         ignore_injected_keys: macro.ignoreInjectedKeys,
         enabled: macro.enabled,
+        collection_id: macro.collectionId,
     };
 }
 
@@ -60,6 +63,7 @@ function fromSnakeCase(response: MacroViewResponse): MacroView {
         blockOriginalEvent: response.block_original_event,
         ignoreInjectedKeys: response.ignore_injected_keys,
         enabled: response.enabled,
+        collectionId: response.collection_id,
     };
 }
 
@@ -77,6 +81,7 @@ function fromSnakeCaseToMacro(response: MacroResponse): Macro {
         blockOriginalKey: response.block_original_event,
         ignoreInjectedKeys: response.ignore_injected_keys,
         enabled: response.enabled,
+        collectionId: response.collection_id,
     };
 }
 
