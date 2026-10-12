@@ -63,9 +63,9 @@ impl Persistence {
             return PathBuf::from(path).with_extension("polodb");
         }
 
-        // Producción: %APPDATA%/mxchro/macros.polodb
-        if let Ok(app_data) = std::env::var("APPDATA") {
-            let mxchro_dir = PathBuf::from(app_data).join("mxchro");
+        // Producción: ./macros.polodb
+        if let Ok(app_data) = std::env::current_dir() {
+            let mxchro_dir = app_data.join("mxchro");
             // Crear directorio si no existe
             let _ = std::fs::create_dir_all(&mxchro_dir);
             return mxchro_dir.join("macros.polodb");
