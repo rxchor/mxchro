@@ -10,6 +10,7 @@ struct CollectionDocument {
     _id: String,
     name: String,
     enabled: bool,
+    order: i32,
 }
 
 impl From<Collection> for CollectionDocument {
@@ -18,6 +19,7 @@ impl From<Collection> for CollectionDocument {
             _id: c.id,
             name: c.name,
             enabled: c.enabled,
+            order: c.order,
         }
     }
 }
@@ -28,6 +30,7 @@ impl From<CollectionDocument> for Collection {
             id: doc._id,
             name: doc.name,
             enabled: doc.enabled,
+            order: doc.order,
         }
     }
 }
@@ -49,10 +52,14 @@ impl CollectionRepository {
         let collection = self.collections_collection();
         match collection.find(doc! {}).run() {
             Ok(cursor) => {
-                let collections: Vec<Collection> = cursor
+                let mut collections: Vec<Collection> = cursor
                     .filter_map(|r| r.ok())
                     .map(Collection::from)
                     .collect();
+                // Sort by order, then by name for consistent ordering
+                collections.sort_by(|a, b| {
+                    a.order.cmp(&b.order).then_with(|| a.name.cmp(&b.name))
+                });
                 log::info!("Loaded {} collections from PoloDB", collections.len());
                 collections
             }
@@ -108,17 +115,52 @@ impl CollectionRepository {
         Ok(())
     }
 
-    pub fn update(&self, collection: &Collection) -> Result<(), String> {
+    pub fn update_name(&self, collection_id: &str, name: &str) -> Result<(), String> {
         let coll = self.db.collection::<polodb_core::bson::Document>("collections");
         coll.update_one(
-            doc! { "_id": &collection.id },
-            doc! { "$set": { "name": &collection.name, "enabled": collection.enabled } },
+            doc! { "_id": collection_id },
+            doc! { "$set": { "name": name } },
         ).map_err(|e| {
-            log::error!("Failed to update collection '{}': {}", collection.id, e);
-            format!("Failed to update collection: {}", e)
+            log::error!("Failed to update name for collection '{}': {}", collection_id, e);
+            format!("Failed to update collection name: {}", e)
         })?;
-        log::info!("Updated collection '{}'", collection.id);
+        log::info!("Collection '{}' renamed to '{}'", collection_id, name);
         Ok(())
+    }
+
+    pub fn reorder(&self, ordered_ids: &[String]) -> Result<(), String> {
+        let coll = self.db.collection::<polodb_core::bson::Document>("collections");
+        
+        for (index, collection_id) in ordered_ids.iter().enumerate() {
+            let order = index as i32;
+            coll.update_one(
+                doc! { "_id": collection_id.as_str() },
+                doc! { "$set": { "order": order } },
+            ).map_err(|e| {
+                log::error!("Failed to update order for collection '{}': {}", collection_id, e);
+                format!("Failed to reorder collection: {}", e)
+            })?;
+        }
+        
+        log::info!("Reordered {} collections", ordered_ids.len());
+        Ok(())
+    }
+
+    pub fn get_max_order(&self) -> i32 {
+        let collection = self.collections_collection();
+        match collection.find(doc! {}).run() {
+            Ok(cursor) => {
+                cursor
+                    .filter_map(|r| r.ok())
+                    .map(|doc| doc.order)
+                    .max()
+                    .unwrap_or(-1)
+            }
+            Err(e) => {
+                log::error!("Failed to get max order: {}", e);
+                -1
+            }
+        }
     }
 
     pub fn wipe_data(&self) -> Result<(), String> {

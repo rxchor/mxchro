@@ -196,7 +196,7 @@ export default function AddActionForm({ onAdd }: AddActionFormProps) {
         </div>
       )}
 
-      <Button type="submit" disabled={!canSubmit}>
+      <Button className="transition-all duration-200 active:scale-95 cursor-pointer" type="submit" disabled={!canSubmit}>
         <Plus className="size-4" />
         Add
       </Button>

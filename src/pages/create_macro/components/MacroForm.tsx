@@ -71,9 +71,9 @@ export default function MacroForm({
   }
 
   return (
-    <div className="bg-primary-foreground rounded-lg border p-6 space-y-6 animate-fade-in-up">
+    <div className="bg-primary-foreground rounded-lg border p-6 space-y-6">
       {/* Trigger & Mode */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-fade-in-up animate-delay-100">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="flex flex-col gap-2">
           <Label className="text-sm font-medium">Trigger Key</Label>
           <Combobox
@@ -125,7 +125,7 @@ export default function MacroForm({
       <Separator />
 
       {/* Collection */}
-      <div className="flex flex-col gap-2 animate-fade-in-up animate-delay-200">
+      <div className="flex flex-col gap-2">
         <Label className="text-sm font-medium">Collection</Label>
         <Select
           value={values.collectionId ?? "none"}
@@ -151,11 +151,11 @@ export default function MacroForm({
       <Separator />
 
       {/* Options */}
-      <div className="flex flex-col gap-4 animate-fade-in-up animate-delay-300">
+      <div className="flex flex-col gap-4">
         <Label className="text-sm font-medium">Options</Label>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div
-            className={`flex items-center gap-3 p-3 rounded-md border bg-background cursor-pointer transition-all duration-200 hover:bg-accent hover:border-accent-foreground/20 active:animate-pop ${values.blockOriginalEvent ? "border-primary/50 bg-primary/5" : ""}`}
+            className={`flex items-center gap-3 p-3 rounded-md border bg-background cursor-pointer transition-all duration-200 hover:bg-accent hover:border-accent-foreground/20 active:scale-98 ${values.blockOriginalEvent ? "border-primary/50 bg-primary/5" : ""}`}
             onClick={() =>
               update("blockOriginalEvent", !values.blockOriginalEvent)
             }
@@ -177,7 +177,7 @@ export default function MacroForm({
           </div>
 
           <div
-            className={`flex items-center gap-3 p-3 rounded-md border bg-background cursor-pointer transition-all duration-200 hover:bg-accent hover:border-accent-foreground/20 active:animate-pop ${values.ignoreInjectedKeys ? "border-primary/50 bg-primary/5" : ""}`}
+            className={`flex items-center gap-3 p-3 rounded-md border bg-background cursor-pointer transition-all duration-200 hover:bg-accent hover:border-accent-foreground/20 active:scale-98 ${values.ignoreInjectedKeys ? "border-primary/50 bg-primary/5" : ""}`}
             onClick={() =>
               update("ignoreInjectedKeys", !values.ignoreInjectedKeys)
             }
@@ -203,9 +203,8 @@ export default function MacroForm({
       <Separator />
 
       {/* Enable Switch */}
-      <div className="animate-fade-in-up animate-delay-300">
-        <div
-          className={`flex items-center justify-between p-4 rounded-md border bg-background cursor-pointer transition-all duration-200 hover:bg-accent hover:border-accent-foreground/20 active:animate-pop ${values.enabled ? "border-primary/50 bg-primary/5" : ""}`}
+      <div
+        className={`flex items-center justify-between p-4 rounded-md border bg-background cursor-pointer transition-all duration-200 hover:bg-accent hover:border-accent-foreground/20 active:scale-99 ${values.enabled ? "border-primary/50 bg-primary/5" : ""}`}
           onClick={() => update("enabled", !values.enabled)}
         >
           <div className="flex flex-col gap-1">
@@ -223,7 +222,6 @@ export default function MacroForm({
             className="pointer-events-none"
           />
         </div>
-      </div>
     </div>
   );
 }

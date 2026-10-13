@@ -83,6 +83,16 @@ fn list_collections() -> Vec<CollectionView> {
 }
 
 #[tauri::command]
+fn rename_collection(collection_id: String, name: String) -> bool {
+    Commands::new(&MACRO_MANAGER).rename_collection(collection_id, name)
+}
+
+#[tauri::command]
+fn reorder_collections(ordered_ids: Vec<String>) -> bool {
+    Commands::new(&MACRO_MANAGER).reorder_collections(ordered_ids)
+}
+
+#[tauri::command]
 fn move_macro_to_collection(trigger_key: String, collection_id: Option<String>) -> bool {
     Commands::new(&MACRO_MANAGER).move_macro_to_collection(trigger_key, collection_id)
 }
@@ -112,6 +122,8 @@ pub fn run() {
             enable_collection,
             disable_collection,
             list_collections,
+            rename_collection,
+            reorder_collections,
             move_macro_to_collection,
         ])
         .run(tauri::generate_context!())

@@ -70,6 +70,14 @@ impl Commands {
         self.manager.list_collections()
     }
 
+    pub fn rename_collection(&self, collection_id: String, name: String) -> bool {
+        self.manager.rename_collection(&collection_id, name)
+    }
+
+    pub fn reorder_collections(&self, ordered_ids: Vec<String>) -> bool {
+        self.manager.reorder_collections(ordered_ids)
+    }
+
     // ── Utility ─────────────────────────────────────────────
 
     pub fn wipe_data(&self) -> Result<(), String> {

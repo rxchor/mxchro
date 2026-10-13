@@ -33,6 +33,7 @@ function CollectionSidebarWrapper() {
     selectCollection,
     handleCreateCollection,
     handleDeleteCollection,
+    handleRenameCollection,
   } = useCollectionContext();
 
   return (
@@ -42,6 +43,7 @@ function CollectionSidebarWrapper() {
       onSelectCollection={selectCollection}
       onCreateCollection={handleCreateCollection}
       onDeleteCollection={handleDeleteCollection}
+      onRenameCollection={handleRenameCollection}
     />
   );
 }

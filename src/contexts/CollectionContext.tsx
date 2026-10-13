@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from "react";
 import { type CollectionView } from "@/model/Collection";
 import { type MacroView } from "@/model/MacroView";
-import { listCollections, createCollection, deleteCollection, enableCollection, disableCollection } from "@/services/CollectionService";
+import { listCollections, createCollection, deleteCollection, enableCollection, disableCollection, updateCollection, reorderCollections } from "@/services/CollectionService";
 import { listMacros } from "@/services/MacroService";
 
 interface CollectionContextType {
@@ -13,6 +13,8 @@ interface CollectionContextType {
   handleCreateCollection: (name: string) => Promise<void>;
   handleDeleteCollection: (id: string) => Promise<void>;
   handleToggleCollection: (id: string, enabled: boolean) => Promise<void>;
+  handleRenameCollection: (id: string, name: string) => Promise<void>;
+  handleReorderCollections: (orderedIds: string[]) => Promise<void>;
   refreshData: () => Promise<void>;
 }
 
@@ -102,6 +104,30 @@ export function CollectionProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const handleRenameCollection = async (id: string, name: string) => {
+    try {
+      const success = await updateCollection(id, name);
+      if (success) {
+        setCollections((prev) =>
+          prev.map((c) => (c.id === id ? { ...c, name } : c))
+        );
+      }
+    } catch (error) {
+      console.error("Error renaming collection:", error);
+    }
+  };
+
+  const handleReorderCollections = async (orderedIds: string[]) => {
+    try {
+      const success = await reorderCollections(orderedIds);
+      if (success) {
+        await refreshData();
+      }
+    } catch (error) {
+      console.error("Error reordering collections:", error);
+    }
+  };
+
   return (
     <CollectionContext.Provider
       value={{
@@ -113,6 +139,8 @@ export function CollectionProvider({ children }: { children: ReactNode }) {
         handleCreateCollection,
         handleDeleteCollection,
         handleToggleCollection,
+        handleRenameCollection,
+        handleReorderCollections,
         refreshData,
       }}
     >

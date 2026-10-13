@@ -120,10 +120,12 @@ impl MacroManager {
 
     pub fn create_collection(&self, name: String) -> Option<String> {
         let id = uuid::Uuid::new_v4().to_string();
+        let order = self.persistence.collection_repo.get_max_order() + 1;
         let collection = Collection {
             id: id.clone(),
             name,
             enabled: true,
+            order,
         };
 
         if let Err(e) = self.persistence.collection_repo.insert(&collection) {
@@ -225,7 +227,7 @@ impl MacroManager {
         let collections = self.collections.read().unwrap();
         let macros = self.macros.read().unwrap();
 
-        collections
+        let mut views: Vec<CollectionView> = collections
             .values()
             .map(|c| {
                 let macros_count = macros
@@ -237,9 +239,62 @@ impl MacroManager {
                     name: c.name.clone(),
                     enabled: c.enabled,
                     macros_count,
+                    order: c.order,
                 }
             })
-            .collect()
+            .collect();
+        
+        // Sort by order
+        views.sort_by(|a, b| a.order.cmp(&b.order));
+        views
+    }
+
+    pub fn rename_collection(&self, collection_id: &str, name: String) -> bool {
+        let mut collections = self.collections.write().unwrap();
+        if let Some(collection) = collections.get_mut(collection_id) {
+            let old_name = collection.name.clone();
+            collection.name = name.clone();
+            
+            if let Err(e) = self.persistence.collection_repo.update_name(collection_id, &name) {
+                log::error!("Failed to persist collection rename: {}", e);
+                collection.name = old_name;
+                return false;
+            }
+            
+            log::info!("Collection '{}' renamed to '{}'", collection_id, name);
+            true
+        } else {
+            log::warn!("rename_collection: collection '{}' not found", collection_id);
+            false
+        }
+    }
+
+    pub fn reorder_collections(&self, ordered_ids: Vec<String>) -> bool {
+        // Verify all collections exist
+        let collections = self.collections.read().unwrap();
+        for id in &ordered_ids {
+            if !collections.contains_key(id) {
+                log::warn!("reorder_collections: collection '{}' not found", id);
+                return false;
+            }
+        }
+        drop(collections);
+
+        if let Err(e) = self.persistence.collection_repo.reorder(&ordered_ids) {
+            log::error!("Failed to persist collection reorder: {}", e);
+            return false;
+        }
+
+        // Update in-memory collections
+        let mut collections = self.collections.write().unwrap();
+        for (index, id) in ordered_ids.iter().enumerate() {
+            if let Some(collection) = collections.get_mut(id) {
+                collection.order = index as i32;
+            }
+        }
+
+        log::info!("Collections reordered");
+        true
     }
 
     pub fn move_macro_to_collection(&self, trigger_key: &str, collection_id: Option<String>) -> bool {

@@ -37,6 +37,7 @@ pub struct Collection {
     pub id: String,
     pub name: String,
     pub enabled: bool,
+    pub order: i32,
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -60,6 +61,7 @@ pub struct CollectionView {
     pub name: String,
     pub enabled: bool,
     pub macros_count: usize,
+    pub order: i32,
 }
 
 pub type ActionCallback = Arc<dyn Fn() + Send + Sync + 'static>;

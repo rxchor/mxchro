@@ -2,7 +2,16 @@ import { useState } from "react";
 import { type CollectionView } from "@/model/Collection";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { FolderOpen, Plus, Trash2, Inbox } from "lucide-react";
+import { Separator } from "@/components/ui/separator";
+import {
+  FolderOpen,
+  Plus,
+  Trash2,
+  Inbox,
+  Pencil,
+  Check,
+  X,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const UNCATEGORIZED_ID = "__uncategorized__";
@@ -13,6 +22,7 @@ interface CollectionSidebarProps {
   onSelectCollection: (id: string | null) => void;
   onCreateCollection: (name: string) => void;
   onDeleteCollection: (id: string) => void;
+  onRenameCollection: (id: string, name: string) => void;
 }
 
 export function CollectionSidebar({
@@ -21,9 +31,14 @@ export function CollectionSidebar({
   onSelectCollection,
   onCreateCollection,
   onDeleteCollection,
+  onRenameCollection,
 }: CollectionSidebarProps) {
   const [newCollectionName, setNewCollectionName] = useState("");
   const [showInput, setShowInput] = useState(false);
+  const [editingCollectionId, setEditingCollectionId] = useState<string | null>(
+    null,
+  );
+  const [editingName, setEditingName] = useState("");
 
   const handleCreate = () => {
     const trimmed = newCollectionName.trim();
@@ -34,7 +49,7 @@ export function CollectionSidebar({
     }
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
+  const handleCreateKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter") {
       handleCreate();
     } else if (e.key === "Escape") {
@@ -43,8 +58,34 @@ export function CollectionSidebar({
     }
   };
 
+  const handleStartRename = (collection: CollectionView) => {
+    setEditingCollectionId(collection.id);
+    setEditingName(collection.name);
+  };
+
+  const handleSaveRename = () => {
+    if (editingCollectionId && editingName.trim()) {
+      onRenameCollection(editingCollectionId, editingName.trim());
+      setEditingCollectionId(null);
+      setEditingName("");
+    }
+  };
+
+  const handleCancelRename = () => {
+    setEditingCollectionId(null);
+    setEditingName("");
+  };
+
+  const handleRenameKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      handleSaveRename();
+    } else if (e.key === "Escape") {
+      handleCancelRename();
+    }
+  };
+
   const sortedCollections = [...collections].sort((a, b) =>
-    a.name.localeCompare(b.name)
+    a.name.localeCompare(b.name),
   );
 
   return (
@@ -67,7 +108,7 @@ export function CollectionSidebar({
             placeholder="Collection name..."
             value={newCollectionName}
             onChange={(e) => setNewCollectionName(e.target.value)}
-            onKeyDown={handleKeyDown}
+            onKeyDown={handleCreateKeyDown}
             className="h-7 text-xs"
             autoFocus
           />
@@ -89,7 +130,7 @@ export function CollectionSidebar({
           className={cn(
             "flex items-center gap-2 px-2 py-1.5 rounded-md text-sm transition-colors",
             "hover:bg-accent",
-            selectedCollectionId === null && "bg-accent font-medium"
+            selectedCollectionId === null && "bg-accent font-medium",
           )}
           onClick={() => onSelectCollection(null)}
         >
@@ -105,7 +146,8 @@ export function CollectionSidebar({
           className={cn(
             "flex items-center gap-2 px-2 py-1.5 rounded-md text-sm transition-colors",
             "hover:bg-accent",
-            selectedCollectionId === UNCATEGORIZED_ID && "bg-accent font-medium"
+            selectedCollectionId === UNCATEGORIZED_ID &&
+              "bg-accent font-medium",
           )}
           onClick={() => onSelectCollection(UNCATEGORIZED_ID)}
         >
@@ -113,45 +155,104 @@ export function CollectionSidebar({
           <span className="flex-1 text-left">Uncategorized</span>
         </button>
 
-        {/* Collections list */}
-        <div className="flex flex-col gap-0.5 mt-2">
-          {sortedCollections.map((collection) => (
-            <div
-              key={collection.id}
-              className={cn(
-                "group flex items-center gap-2 px-2 py-1.5 rounded-md text-sm transition-colors",
-                "hover:bg-accent",
-                selectedCollectionId === collection.id && "bg-accent font-medium"
-              )}
-            >
-              <button
-                className="flex items-center gap-2 flex-1 min-w-0"
-                onClick={() => onSelectCollection(collection.id)}
-              >
-                <FolderOpen className="size-4 shrink-0" />
-                <span className="flex-1 text-left truncate">
-                  {collection.name}
-                </span>
-                <span className="text-xs text-muted-foreground">
-                  {collection.macrosCount}
-                </span>
-              </button>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="size-5 opacity-0 group-hover:opacity-100 transition-opacity"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (confirm(`Delete collection "${collection.name}"?`)) {
-                    onDeleteCollection(collection.id);
-                  }
-                }}
-              >
-                <Trash2 className="size-3" />
-              </Button>
+        {sortedCollections.length > 0 && (
+          <>
+            <Separator className="my-1" />
+
+            {/* Collections list */}
+            <div className="flex flex-col gap-0.5 mt-2">
+              {sortedCollections.map((collection) => {
+                const isEditing = editingCollectionId === collection.id;
+
+                return (
+                  <div
+                    key={collection.id}
+                    className={cn(
+                      "group flex items-center gap-2 px-2 py-1.5 rounded-md text-sm transition-colors",
+                      "hover:bg-accent",
+                      selectedCollectionId === collection.id &&
+                        "bg-accent font-medium",
+                    )}
+                  >
+                    {isEditing ? (
+                      <>
+                        <Input
+                          value={editingName}
+                          onChange={(e) => setEditingName(e.target.value)}
+                          onKeyDown={handleRenameKeyDown}
+                          className="h-6 text-xs flex-1"
+                          autoFocus
+                        />
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="size-5 hover:bg-green-100 hover:text-green-700"
+                          onClick={handleSaveRename}
+                          disabled={!editingName.trim()}
+                        >
+                          <Check className="size-3" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="size-5 hover:bg-red-100 hover:text-red-700"
+                          onClick={handleCancelRename}
+                        >
+                          <X className="size-3" />
+                        </Button>
+                      </>
+                    ) : (
+                      <>
+                        <button
+                          className="flex items-center gap-2 flex-1 min-w-0"
+                          onClick={() => onSelectCollection(collection.id)}
+                        >
+                          <FolderOpen className="size-4 shrink-0" />
+                          <span className="flex-1 text-left truncate">
+                            {collection.name}
+                          </span>
+                          <span className="text-xs text-muted-foreground">
+                            {collection.macrosCount}
+                          </span>
+                        </button>
+                        <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="size-5 hover:bg-blue-100 hover:text-blue-700"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleStartRename(collection);
+                            }}
+                          >
+                            <Pencil className="size-3" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="size-5 hover:bg-red-100 hover:text-red-700"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (
+                                confirm(
+                                  `Delete collection "${collection.name}"?`,
+                                )
+                              ) {
+                                onDeleteCollection(collection.id);
+                              }
+                            }}
+                          >
+                            <Trash2 className="size-3" />
+                          </Button>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                );
+              })}
             </div>
-          ))}
-        </div>
+          </>
+        )}
       </nav>
     </div>
   );

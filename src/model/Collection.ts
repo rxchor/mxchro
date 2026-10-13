@@ -2,6 +2,7 @@ export interface Collection {
     id: string;
     name: string;
     enabled: boolean;
+    order: number;
 }
 
 export interface CollectionView {
@@ -9,4 +10,5 @@ export interface CollectionView {
     name: string;
     enabled: boolean;
     macrosCount: number;
+    order: number;
 }
