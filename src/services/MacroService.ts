@@ -11,6 +11,7 @@ interface MacroResponse {
     ignore_injected_keys: boolean;
     enabled: boolean;
     collection_id: string | null;
+    toggle_enabled_hotkey: string | null;
 }
 
 interface MacroViewResponse {
@@ -21,6 +22,7 @@ interface MacroViewResponse {
     ignore_injected_keys: boolean;
     enabled: boolean;
     collection_id: string | null;
+    toggle_enabled_hotkey: string | null;
 }
 
 interface ActionResponse {
@@ -52,6 +54,7 @@ function toSnakeCase(macro: Macro): MacroResponse {
         ignore_injected_keys: macro.ignoreInjectedKeys,
         enabled: macro.enabled,
         collection_id: macro.collectionId,
+        toggle_enabled_hotkey: macro.toggleEnabledHotkey,
     };
 }
 
@@ -64,6 +67,7 @@ function fromSnakeCase(response: MacroViewResponse): MacroView {
         ignoreInjectedKeys: response.ignore_injected_keys,
         enabled: response.enabled,
         collectionId: response.collection_id,
+        toggleEnabledHotkey: response.toggle_enabled_hotkey,
     };
 }
 
@@ -82,6 +86,7 @@ function fromSnakeCaseToMacro(response: MacroResponse): Macro {
         ignoreInjectedKeys: response.ignore_injected_keys,
         enabled: response.enabled,
         collectionId: response.collection_id,
+        toggleEnabledHotkey: response.toggle_enabled_hotkey,
     };
 }
 
@@ -115,6 +120,10 @@ export async function getMacro(triggerKey: string): Promise<Macro | null> {
 export async function updateMacro(oldTriggerKey: string, macro: Macro): Promise<boolean> {
     const request = toSnakeCase(macro);
     return await invoke<boolean>("update_macro", { oldTriggerKey, dto: request });
+}
+
+export async function setMacroToggleHotkey(triggerKey: string, hotkey: string | null): Promise<boolean> {
+    return await invoke<boolean>("set_macro_toggle_hotkey", { triggerKey, hotkey });
 }
 
 export async function wipeData(): Promise<void> {

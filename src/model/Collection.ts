@@ -3,6 +3,7 @@ export interface Collection {
     name: string;
     enabled: boolean;
     order: number;
+    toggleEnabledHotkey: string | null;
 }
 
 export interface CollectionView {
@@ -11,4 +12,5 @@ export interface CollectionView {
     enabled: boolean;
     macrosCount: number;
     order: number;
+    toggleEnabledHotkey: string | null;
 }

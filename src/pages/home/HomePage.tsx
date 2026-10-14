@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { deleteMacro, enableMacro, disableMacro, wipeData } from "@/services/MacroService";
 import { moveMacroToCollection } from "@/services/CollectionService";
 import { type MacroView } from "@/model/MacroView";
@@ -10,6 +10,7 @@ import { CollectionSidebar, UNCATEGORIZED_ID } from "@/components/CollectionSide
 import { CollectionProvider, useCollectionContext } from "@/contexts/CollectionContext";
 import { Trash2, RefreshCw, Power, Pencil, Eraser, Folder } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { listen } from "@tauri-apps/api/event";
 
 export function HomePage() {
   return (
@@ -34,6 +35,7 @@ function CollectionSidebarWrapper() {
     handleCreateCollection,
     handleDeleteCollection,
     handleRenameCollection,
+    handleSetCollectionToggleHotkey,
   } = useCollectionContext();
 
   return (
@@ -44,6 +46,7 @@ function CollectionSidebarWrapper() {
       onCreateCollection={handleCreateCollection}
       onDeleteCollection={handleDeleteCollection}
       onRenameCollection={handleRenameCollection}
+      onSetToggleHotkey={handleSetCollectionToggleHotkey}
     />
   );
 }
@@ -52,6 +55,17 @@ function HomePageContent() {
   const { collections, macros, selectedCollectionId, loading, refreshData } = useCollectionContext();
   const [wiping, setWiping] = useState(false);
   const navigate = useNavigate();
+
+  // Listen for toggle events from backend (triggered by toggle hotkeys)
+  useEffect(() => {
+    const unlisten = listen('toggle-event', () => {
+      refreshData();
+    });
+
+    return () => {
+      unlisten.then(unsub => unsub());
+    };
+  }, [refreshData]);
 
   async function handleDelete(triggerKey: string) {
     try {

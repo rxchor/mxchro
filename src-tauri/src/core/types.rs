@@ -30,6 +30,7 @@ pub struct Macro {
     pub ignore_injected_keys: bool,
     pub enabled: bool,
     pub collection_id: Option<String>,
+    pub toggle_enabled_hotkey: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -38,6 +39,7 @@ pub struct Collection {
     pub name: String,
     pub enabled: bool,
     pub order: i32,
+    pub toggle_enabled_hotkey: Option<String>,
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -53,6 +55,7 @@ pub struct MacroView {
     pub ignore_injected_keys: bool,
     pub enabled: bool,
     pub collection_id: Option<String>,
+    pub toggle_enabled_hotkey: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -62,6 +65,7 @@ pub struct CollectionView {
     pub enabled: bool,
     pub macros_count: usize,
     pub order: i32,
+    pub toggle_enabled_hotkey: Option<String>,
 }
 
 pub type ActionCallback = Arc<dyn Fn() + Send + Sync + 'static>;

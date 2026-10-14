@@ -20,8 +20,9 @@
 - [ ] Import/export de perfiles de macros
 - [ ] Detección de teclas en UI (input que detecta tecla presionada en lugar de selección manual)
 - [x] ~~Velocidad de repetición configurable para Hold/Toggle~~ → Se controla con WAITs en las acciones (ej: Click Press → Click Release → Wait 10ms = 100 clicks/segundo)
-- [ ] Hotkey para activar/desactivar macros individuales (atajo de teclado global para controlar macros sin abrir la interfaz)
+- [x] Hotkey para activar/desactivar macros individuales (atajo de teclado global para controlar macros sin abrir la interfaz)
 - [x] ~~Colecciones para agrupar macros~~ → Implementado con soporte para crear/eliminar colecciones, mover macros entre colecciones, y activar/desactivar colecciones completas en masa
+- [x] Hotkey para activar/desactivar colecciones completas (atajo de teclado global para controlar todas las macros de una colección)
 
 ## ✅ Completado
 
@@ -32,6 +33,12 @@
 
 ### Features
 - **Soporte para clicks de ratón**: Implementado soporte completo para botones de ratón (izquierdo, derecho, central, X1, X2) usando `INPUT_MOUSE` de Windows API
+- **Toggle hotkeys**: Sistema completo de hotkeys globales para activar/desactivar macros individuales y colecciones completas desde cualquier aplicación
+  - Componente `KeyInput` reutilizable para capturar teclas
+  - UI integrada en MacroForm y CollectionSidebar
+  - Badges visuales mostrando hotkeys configurados
+  - Detección automática en `process_key_event` del hook de teclado
+- **Sistema de versionado de esquema**: Detección automática de cambios en la estructura de datos con reset automático de la BD y variable de entorno `RESET_DB=true` para desarrollo
 
 ## 💡 Ideas / Backlog
 

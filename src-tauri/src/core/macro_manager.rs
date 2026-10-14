@@ -23,6 +23,7 @@ struct MacroInstance {
     ignore_injected_keys: bool,
     enabled: bool,
     collection_id: Option<String>,
+    toggle_enabled_hotkey: Option<u16>,
     actions_count: usize,
     repeat_state: Arc<(Mutex<RepeatState>, Condvar)>,
     thread_handle: Arc<Mutex<Option<JoinHandle<()>>>>,
@@ -31,11 +32,27 @@ struct MacroInstance {
 /// Resultado de procesar un evento de tecla.
 pub struct KeyEventResult {
     pub should_block: bool,
+    pub toggle_event: Option<ToggleEvent>,
+}
+
+/// Evento de toggle que ocurrió al procesar una tecla.
+#[derive(Clone, serde::Serialize)]
+pub struct ToggleEvent {
+    pub target: ToggleTarget,
+    pub enabled: bool,
+}
+
+#[derive(Clone, serde::Serialize)]
+#[serde(tag = "type", content = "value")]
+pub enum ToggleTarget {
+    Macro(String),     // trigger_key
+    Collection(String), // collection_id
 }
 
 pub struct MacroManager {
     macros: RwLock<HashMap<u16, MacroInstance>>,
     collections: RwLock<HashMap<String, Collection>>,
+    toggle_hotkeys: RwLock<HashMap<u16, ToggleTarget>>, // Índice inverso de toggle hotkeys
     key_mapper: &'static KeyMapper,
     persistence: Persistence,
 }
@@ -45,6 +62,7 @@ impl MacroManager {
         let manager = MacroManager {
             macros: RwLock::new(HashMap::new()),
             collections: RwLock::new(HashMap::new()),
+            toggle_hotkeys: RwLock::new(HashMap::new()),
             key_mapper: KeyMapper::instance(),
             persistence: Persistence::new(),
         };
@@ -59,7 +77,15 @@ impl MacroManager {
         // Cargar colecciones primero
         let collections = self.persistence.collection_repo.load_all();
         let mut coll_map = self.collections.write().unwrap();
+        let mut toggle_map = self.toggle_hotkeys.write().unwrap();
+        
         for collection in collections {
+            // Indexar toggle hotkey de la colección
+            if let Some(hotkey_str) = &collection.toggle_enabled_hotkey {
+                if let Some(vk) = self.key_mapper.string_to_vk(hotkey_str) {
+                    toggle_map.insert(vk, ToggleTarget::Collection(collection.id.clone()));
+                }
+            }
             coll_map.insert(collection.id.clone(), collection);
         }
         log::info!("Loaded {} collections from persistence", coll_map.len());
@@ -72,6 +98,13 @@ impl MacroManager {
         for config in configs {
             if let Some(vk) = self.key_mapper.string_to_vk(&config.trigger_key) {
                 if !macros.contains_key(&vk) {
+                    // Indexar toggle hotkey del macro
+                    if let Some(hotkey_str) = &config.toggle_enabled_hotkey {
+                        if let Some(hotkey_vk) = self.key_mapper.string_to_vk(hotkey_str) {
+                            toggle_map.insert(hotkey_vk, ToggleTarget::Macro(config.trigger_key.clone()));
+                        }
+                    }
+                    
                     let mut instance = self.create_instance(config);
                     if instance.enabled {
                         instance.spawn_repeat_thread();
@@ -82,6 +115,8 @@ impl MacroManager {
         }
         
         log::info!("Loaded {} macros from persistence", macros.len());
+        drop(macros);
+        drop(toggle_map);
     }
 
     fn trigger_key_str(&self, vk: &u16) -> String {
@@ -97,6 +132,7 @@ impl MacroManager {
             ignore_injected_keys: instance.ignore_injected_keys,
             enabled: instance.enabled,
             collection_id: instance.collection_id.clone(),
+            toggle_enabled_hotkey: instance.toggle_enabled_hotkey.and_then(|vk| self.key_mapper.vk_to_string(&vk).map(|s| s.to_string())),
         }
     }
 
@@ -126,6 +162,7 @@ impl MacroManager {
             name,
             enabled: true,
             order,
+            toggle_enabled_hotkey: None,
         };
 
         if let Err(e) = self.persistence.collection_repo.insert(&collection) {
@@ -240,6 +277,7 @@ impl MacroManager {
                     enabled: c.enabled,
                     macros_count,
                     order: c.order,
+                    toggle_enabled_hotkey: c.toggle_enabled_hotkey.clone(),
                 }
             })
             .collect();
@@ -334,6 +372,8 @@ impl MacroManager {
 
     fn create_instance(&self, macro_entity: Macro) -> MacroInstance {
         let vk = self.key_mapper.string_to_vk(&macro_entity.trigger_key).unwrap();
+        let toggle_enabled_hotkey = macro_entity.toggle_enabled_hotkey.as_ref()
+            .and_then(|key| self.key_mapper.string_to_vk(key));
         let actions = self.build_actions(&macro_entity.actions);
         let actions_count = actions.len();
         let combined_action = self.combine_actions(actions);
@@ -356,6 +396,7 @@ impl MacroManager {
             ignore_injected_keys: macro_entity.ignore_injected_keys,
             enabled: macro_entity.enabled,
             collection_id: macro_entity.collection_id.clone(),
+            toggle_enabled_hotkey,
             actions_count,
             repeat_state,
             thread_handle: Arc::new(Mutex::new(None)),
@@ -377,9 +418,15 @@ impl MacroManager {
             return false;
         }
 
-        let mut instance = self.create_instance(macro_entity);
+        let mut instance = self.create_instance(macro_entity.clone());
         if instance.enabled {
             instance.spawn_repeat_thread();
+        }
+
+        // Agregar al índice de toggle hotkeys
+        if let Some(hotkey_vk) = instance.toggle_enabled_hotkey {
+            let mut toggle_map = self.toggle_hotkeys.write().unwrap();
+            toggle_map.insert(hotkey_vk, ToggleTarget::Macro(macro_entity.trigger_key.clone()));
         }
 
         let config = self.build_config(&instance);
@@ -408,6 +455,7 @@ impl MacroManager {
             ignore_injected_keys: instance.ignore_injected_keys,
             enabled: instance.enabled,
             collection_id: instance.collection_id.clone(),
+            toggle_enabled_hotkey: instance.toggle_enabled_hotkey.and_then(|vk| self.key_mapper.vk_to_string(&vk).map(|s| s.to_string())),
         })
     }
 
@@ -438,6 +486,11 @@ impl MacroManager {
 
         // Eliminar la macro antigua
         if let Some(mut old_instance) = macros.remove(&old_vk) {
+            // Remover toggle hotkey antiguo del índice
+            if let Some(old_hotkey_vk) = old_instance.toggle_enabled_hotkey {
+                let mut toggle_map = self.toggle_hotkeys.write().unwrap();
+                toggle_map.remove(&old_hotkey_vk);
+            }
             old_instance.stop_repeat_thread();
             log::info!("Macro updated: old trigger={} (vk={})", old_trigger_key, old_vk);
         } else {
@@ -468,6 +521,8 @@ impl MacroManager {
             ignore_injected_keys: macro_entity.ignore_injected_keys,
             enabled: macro_entity.enabled,
             collection_id: macro_entity.collection_id.clone(),
+            toggle_enabled_hotkey: macro_entity.toggle_enabled_hotkey.as_ref()
+                .and_then(|key| self.key_mapper.string_to_vk(key)),
             actions_count,
             repeat_state,
             thread_handle: Arc::new(Mutex::new(None)),
@@ -475,6 +530,12 @@ impl MacroManager {
 
         if instance.enabled {
             instance.spawn_repeat_thread();
+        }
+
+        // Agregar nuevo toggle hotkey al índice
+        if let Some(new_hotkey_vk) = instance.toggle_enabled_hotkey {
+            let mut toggle_map = self.toggle_hotkeys.write().unwrap();
+            toggle_map.insert(new_hotkey_vk, ToggleTarget::Macro(macro_entity.trigger_key.clone()));
         }
 
         log::info!("Macro updated: new trigger={} (vk={}), mode={:?}, actions={}, enabled={}",
@@ -500,6 +561,12 @@ impl MacroManager {
 
         let mut macros = self.macros.write().unwrap();
         if let Some(mut instance) = macros.remove(&vk) {
+            // Remover toggle hotkey del índice
+            if let Some(hotkey_vk) = instance.toggle_enabled_hotkey {
+                let mut toggle_map = self.toggle_hotkeys.write().unwrap();
+                toggle_map.remove(&hotkey_vk);
+            }
+            
             log::info!("Macro deleted: trigger={} (vk={})", trigger_key, vk);
             instance.stop_repeat_thread();
             drop(macros);
@@ -576,8 +643,166 @@ impl MacroManager {
                 ignore_injected_keys: m.ignore_injected_keys,
                 enabled: m.enabled,
                 collection_id: m.collection_id.clone(),
+                toggle_enabled_hotkey: m.toggle_enabled_hotkey.and_then(|vk| self.key_mapper.vk_to_string(&vk).map(|s| s.to_string())),
             })
             .collect()
+    }
+
+    pub fn set_macro_toggle_hotkey(&self, trigger_key: &str, hotkey: Option<String>) -> bool {
+        let vk = match self.key_mapper.string_to_vk(trigger_key) {
+            Some(vk) => vk,
+            None => {
+                log::warn!("set_macro_toggle_hotkey: trigger key '{}' not recognized", trigger_key);
+                return false;
+            }
+        };
+
+        let mut macros = self.macros.write().unwrap();
+        if let Some(instance) = macros.get_mut(&vk) {
+            // Remover hotkey antiguo del índice
+            if let Some(old_hotkey_vk) = instance.toggle_enabled_hotkey {
+                let mut toggle_map = self.toggle_hotkeys.write().unwrap();
+                toggle_map.remove(&old_hotkey_vk);
+            }
+
+            // Establecer nuevo hotkey
+            let new_hotkey_vk = hotkey.as_ref().and_then(|key| self.key_mapper.string_to_vk(key));
+            instance.toggle_enabled_hotkey = new_hotkey_vk;
+
+            // Agregar nuevo hotkey al índice
+            if let Some(new_vk) = new_hotkey_vk {
+                let mut toggle_map = self.toggle_hotkeys.write().unwrap();
+                toggle_map.insert(new_vk, ToggleTarget::Macro(trigger_key.to_string()));
+            }
+
+            drop(macros);
+
+            let hotkey_str = hotkey.clone();
+            if let Err(e) = self.persistence.macro_repo.set_toggle_hotkey(trigger_key, hotkey) {
+                log::error!("Failed to persist toggle hotkey for '{}': {}", trigger_key, e);
+                return false;
+            }
+
+            log::info!("Macro '{}' toggle hotkey set to {:?}", trigger_key, hotkey_str);
+            true
+        } else {
+            log::warn!("set_macro_toggle_hotkey: macro with trigger key '{}' not found", trigger_key);
+            false
+        }
+    }
+
+    pub fn set_collection_toggle_hotkey(&self, collection_id: &str, hotkey: Option<String>) -> bool {
+        let mut collections = self.collections.write().unwrap();
+        if let Some(collection) = collections.get_mut(collection_id) {
+            // Remover hotkey antiguo del índice
+            if let Some(old_hotkey_str) = &collection.toggle_enabled_hotkey {
+                if let Some(old_hotkey_vk) = self.key_mapper.string_to_vk(old_hotkey_str) {
+                    let mut toggle_map = self.toggle_hotkeys.write().unwrap();
+                    toggle_map.remove(&old_hotkey_vk);
+                }
+            }
+
+            // Establecer nuevo hotkey
+            let new_hotkey_vk = hotkey.as_ref().and_then(|key| self.key_mapper.string_to_vk(key));
+            collection.toggle_enabled_hotkey = hotkey.clone();
+
+            // Agregar nuevo hotkey al índice
+            if let Some(new_vk) = new_hotkey_vk {
+                let mut toggle_map = self.toggle_hotkeys.write().unwrap();
+                toggle_map.insert(new_vk, ToggleTarget::Collection(collection_id.to_string()));
+            }
+
+            drop(collections);
+
+            let hotkey_str = hotkey.clone();
+            if let Err(e) = self.persistence.collection_repo.set_toggle_hotkey(collection_id, hotkey) {
+                log::error!("Failed to persist toggle hotkey for collection '{}': {}", collection_id, e);
+                return false;
+            }
+
+            log::info!("Collection '{}' toggle hotkey set to {:?}", collection_id, hotkey_str);
+            true
+        } else {
+            log::warn!("set_collection_toggle_hotkey: collection '{}' not found", collection_id);
+            false
+        }
+    }
+
+    /// Hace toggle del estado enabled de una macro (llamado desde toggle hotkey)
+    /// Retorna el nuevo estado si se hizo toggle, None si no se encontró la macro
+    fn toggle_macro_enabled(&self, trigger_key: &str) -> Option<bool> {
+        let vk = match self.key_mapper.string_to_vk(trigger_key) {
+            Some(vk) => vk,
+            None => return None,
+        };
+
+        let mut macros = self.macros.write().unwrap();
+        if let Some(instance) = macros.get_mut(&vk) {
+            let new_enabled = !instance.enabled;
+            if new_enabled {
+                instance.enable();
+            } else {
+                instance.disable();
+            }
+            instance.enabled = new_enabled;
+            
+            drop(macros);
+            
+            if let Err(e) = self.persistence.macro_repo.set_enabled(trigger_key, new_enabled) {
+                log::error!("Failed to persist toggle for macro '{}': {}", trigger_key, e);
+            }
+            
+            log::info!("Macro '{}' toggled to enabled={}", trigger_key, new_enabled);
+            Some(new_enabled)
+        } else {
+            None
+        }
+    }
+
+    /// Hace toggle del estado enabled de una colección y todas sus macros (llamado desde toggle hotkey)
+    /// Retorna el nuevo estado si se hizo toggle, None si no se encontró la colección
+    fn toggle_collection_enabled(&self, collection_id: &str) -> Option<bool> {
+        let mut collections = self.collections.write().unwrap();
+        if let Some(collection) = collections.get_mut(collection_id) {
+            let new_enabled = !collection.enabled;
+            collection.enabled = new_enabled;
+            
+            drop(collections);
+            
+            // Actualizar todas las macros de la colección
+            let mut macros = self.macros.write().unwrap();
+            for instance in macros.values_mut() {
+                if instance.collection_id.as_deref() == Some(collection_id) {
+                    if new_enabled {
+                        instance.enable();
+                    } else {
+                        instance.disable();
+                    }
+                    instance.enabled = new_enabled;
+                }
+            }
+            
+            drop(macros);
+            
+            if let Err(e) = self.persistence.collection_repo.set_enabled(collection_id, new_enabled) {
+                log::error!("Failed to persist toggle for collection '{}': {}", collection_id, e);
+            }
+            
+            // También actualizar el enabled de cada macro individualmente
+            for instance in self.macros.read().unwrap().values() {
+                if instance.collection_id.as_deref() == Some(collection_id) {
+                    let trigger_key = self.key_mapper.vk_to_string(&instance.trigger_key).unwrap_or_default();
+                    if let Err(e) = self.persistence.macro_repo.set_enabled(&trigger_key, new_enabled) {
+                        log::error!("Failed to persist toggle for macro '{}': {}", trigger_key, e);
+                    }
+                }
+            }
+            
+            log::info!("Collection '{}' toggled to enabled={}", collection_id, new_enabled);
+            Some(new_enabled)
+        } else {
+            None
+        }
     }
 
     pub fn get_available_keys(&self) -> Vec<String> {
@@ -587,13 +812,52 @@ impl MacroManager {
     /// Procesa un evento de tecla en una sola adquisición del lock,
     /// evitando deadlocks por múltiples reads anidados.
     ///
-    /// Retorna un `KeyEventResult` indicando si la tecla debe bloquearse.
+    /// Retorna un `KeyEventResult` indicando si la tecla debe bloquearse
+    /// y si ocurrió un evento de toggle.
     pub fn process_key_event(&self, vk: u16, is_key_down: bool, is_key_up: bool, is_injected: bool) -> KeyEventResult {
+        // Primero verificar si es un toggle hotkey (solo en key_down para evitar doble toggle)
+        if is_key_down && !is_injected {
+            let toggle_hotkeys = self.toggle_hotkeys.read().unwrap();
+            if let Some(target) = toggle_hotkeys.get(&vk) {
+                match target {
+                    ToggleTarget::Macro(trigger_key) => {
+                        let trigger_key = trigger_key.clone();
+                        drop(toggle_hotkeys);
+                        if let Some(new_enabled) = self.toggle_macro_enabled(&trigger_key) {
+                            return KeyEventResult {
+                                should_block: true,
+                                toggle_event: Some(ToggleEvent {
+                                    target: ToggleTarget::Macro(trigger_key),
+                                    enabled: new_enabled,
+                                }),
+                            };
+                        }
+                        return KeyEventResult { should_block: false, toggle_event: None };
+                    }
+                    ToggleTarget::Collection(collection_id) => {
+                        let collection_id = collection_id.clone();
+                        drop(toggle_hotkeys);
+                        if let Some(new_enabled) = self.toggle_collection_enabled(&collection_id) {
+                            return KeyEventResult {
+                                should_block: true,
+                                toggle_event: Some(ToggleEvent {
+                                    target: ToggleTarget::Collection(collection_id),
+                                    enabled: new_enabled,
+                                }),
+                            };
+                        }
+                        return KeyEventResult { should_block: false, toggle_event: None };
+                    }
+                }
+            }
+        }
+
+        // Si no es un toggle hotkey, procesar como trigger key normal
         let macros = self.macros.read().unwrap();
 
         let instance = match macros.get(&vk) {
             Some(inst) => inst,
-            None => return KeyEventResult { should_block: false },
+            None => return KeyEventResult { should_block: false, toggle_event: None },
         };
 
         log::trace!("process_key_event: vk={}, down={}, up={}, injected={}, mode={:?}", 
@@ -605,13 +869,13 @@ impl MacroManager {
 
         if !instance.enabled {
             log::trace!("Macro disabled, skipping");
-            return KeyEventResult { should_block };
+            return KeyEventResult { should_block, toggle_event: None };
         }
 
         if is_injected {
             if instance.ignore_injected_keys {
                 log::trace!("Ignoring injected event (ignore_injected_keys=true)");
-                return KeyEventResult { should_block };
+                return KeyEventResult { should_block, toggle_event: None };
             }
             // Protección contra self-triggering: incluso si ignore_injected_keys es false,
             // ignoramos ciertos eventos inyectados para evitar que la macro se interfiera consigo misma.
@@ -619,12 +883,12 @@ impl MacroManager {
                 // KeyUp inyectado desactivaría el Hold prematuramente (la macro envía KeyUp de la misma tecla)
                 Mode::Hold if is_key_up => {
                     log::debug!("Self-triggering prevented: ignoring injected KeyUp for Hold macro (vk={})", vk);
-                    return KeyEventResult { should_block };
+                    return KeyEventResult { should_block, toggle_event: None };
                 },
                 // KeyDown inyectado togglería el macro off (la macro envía KeyDown de la misma tecla)
                 Mode::Toggle if is_key_down => {
                     log::debug!("Self-triggering prevented: ignoring injected KeyDown for Toggle macro (vk={})", vk);
-                    return KeyEventResult { should_block };
+                    return KeyEventResult { should_block, toggle_event: None };
                 },
                 _ => {}
             }
@@ -663,7 +927,7 @@ impl MacroManager {
             state.active = false;
         }
 
-        KeyEventResult { should_block }
+        KeyEventResult { should_block, toggle_event: None }
     }
 
     fn build_actions(&self, events: &[Action]) -> Vec<ActionCallback> {

@@ -11,8 +11,11 @@ import {
   Pencil,
   Check,
   X,
+  Keyboard,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { KeyInput } from "@/components/KeyInput";
+import { formattedKey } from "@/services/KeyListService";
 
 const UNCATEGORIZED_ID = "__uncategorized__";
 
@@ -23,6 +26,7 @@ interface CollectionSidebarProps {
   onCreateCollection: (name: string) => void;
   onDeleteCollection: (id: string) => void;
   onRenameCollection: (id: string, name: string) => void;
+  onSetToggleHotkey: (id: string, hotkey: string | null) => void;
 }
 
 export function CollectionSidebar({
@@ -32,6 +36,7 @@ export function CollectionSidebar({
   onCreateCollection,
   onDeleteCollection,
   onRenameCollection,
+  onSetToggleHotkey,
 }: CollectionSidebarProps) {
   const [newCollectionName, setNewCollectionName] = useState("");
   const [showInput, setShowInput] = useState(false);
@@ -39,6 +44,7 @@ export function CollectionSidebar({
     null,
   );
   const [editingName, setEditingName] = useState("");
+  const [editingHotkeyCollectionId, setEditingHotkeyCollectionId] = useState<string | null>(null);
 
   const handleCreate = () => {
     const trimmed = newCollectionName.trim();
@@ -201,6 +207,30 @@ export function CollectionSidebar({
                           <X className="size-3" />
                         </Button>
                       </>
+                    ) : editingHotkeyCollectionId === collection.id ? (
+                      <>
+                        <div className="flex-1 min-w-0">
+                          <KeyInput
+                            value={collection.toggleEnabledHotkey}
+                            onChange={(key) => {
+                              onSetToggleHotkey(collection.id, key);
+                              setEditingHotkeyCollectionId(null);
+                            }}
+                            placeholder="Press a key..."
+                          />
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="size-5 hover:bg-red-100 hover:text-red-700"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setEditingHotkeyCollectionId(null);
+                          }}
+                        >
+                          <X className="size-3" />
+                        </Button>
+                      </>
                     ) : (
                       <>
                         <button
@@ -211,11 +241,28 @@ export function CollectionSidebar({
                           <span className="flex-1 text-left truncate">
                             {collection.name}
                           </span>
+                          {collection.toggleEnabledHotkey && (
+                            <span className="text-xs px-1.5 py-0.5 rounded bg-blue-100 text-blue-700">
+                              {formattedKey(collection.toggleEnabledHotkey)}
+                            </span>
+                          )}
                           <span className="text-xs text-muted-foreground">
                             {collection.macrosCount}
                           </span>
                         </button>
                         <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="size-5 hover:bg-purple-100 hover:text-purple-700"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setEditingHotkeyCollectionId(collection.id);
+                            }}
+                            title="Set toggle hotkey"
+                          >
+                            <Keyboard className="size-3" />
+                          </Button>
                           <Button
                             variant="ghost"
                             size="icon"

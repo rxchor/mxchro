@@ -14,6 +14,7 @@ struct MacroDocument {
     ignore_injected_keys: bool,
     enabled: bool,
     collection_id: Option<String>,
+    toggle_enabled_hotkey: Option<String>,
 }
 
 impl From<Macro> for MacroDocument {
@@ -26,6 +27,7 @@ impl From<Macro> for MacroDocument {
             ignore_injected_keys: m.ignore_injected_keys,
             enabled: m.enabled,
             collection_id: m.collection_id,
+            toggle_enabled_hotkey: m.toggle_enabled_hotkey,
         }
     }
 }
@@ -40,6 +42,7 @@ impl From<MacroDocument> for Macro {
             ignore_injected_keys: doc.ignore_injected_keys,
             enabled: doc.enabled,
             collection_id: doc.collection_id,
+            toggle_enabled_hotkey: doc.toggle_enabled_hotkey,
         }
     }
 }
@@ -139,6 +142,23 @@ impl MacroRepository {
             format!("Failed to wipe macros: {}", e)
         })?;
         log::info!("Wiped all macros from PoloDB");
+        Ok(())
+    }
+
+    pub fn set_toggle_hotkey(&self, trigger_key: &str, hotkey: Option<String>) -> Result<(), String> {
+        let collection = self.db.collection::<polodb_core::bson::Document>("macros");
+        let update = match &hotkey {
+            Some(key) => doc! { "$set": { "toggle_enabled_hotkey": key } },
+            None => doc! { "$unset": { "toggle_enabled_hotkey": "" } },
+        };
+        
+        collection
+            .update_one(doc! { "_id": trigger_key }, update)
+            .map_err(|e| {
+                log::error!("Failed to set toggle hotkey for macro '{}': {}", trigger_key, e);
+                format!("Failed to update toggle hotkey: {}", e)
+            })?;
+        log::info!("Macro '{}' toggle hotkey set to {:?}", trigger_key, hotkey);
         Ok(())
     }
 }

@@ -24,6 +24,7 @@ const initialConfig: MacroFormValues = {
   ignoreInjectedKeys: true,
   enabled: true,
   collectionId: null,
+  toggleEnabledHotkey: null,
 };
 
 function newId() {
@@ -36,7 +37,9 @@ export function CreateMacroPage() {
   const [collections, setCollections] = useState<CollectionView[]>([]);
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [originalTriggerKey, setOriginalTriggerKey] = useState<string | null>(null);
+  const [originalTriggerKey, setOriginalTriggerKey] = useState<string | null>(
+    null,
+  );
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -50,7 +53,7 @@ export function CreateMacroPage() {
     if (editTriggerKey) {
       setLoading(true);
       setOriginalTriggerKey(editTriggerKey);
-      getMacro(editTriggerKey).then(macro => {
+      getMacro(editTriggerKey).then((macro) => {
         if (macro) {
           setConfig({
             triggerKey: macro.triggerKey,
@@ -59,8 +62,9 @@ export function CreateMacroPage() {
             ignoreInjectedKeys: macro.ignoreInjectedKeys,
             enabled: macro.enabled,
             collectionId: macro.collectionId,
+            toggleEnabledHotkey: macro.toggleEnabledHotkey,
           });
-          setActions(macro.actions.map(action => ({ id: newId(), action })));
+          setActions(macro.actions.map((action) => ({ id: newId(), action })));
         }
         setLoading(false);
       });
@@ -68,7 +72,7 @@ export function CreateMacroPage() {
   }, [location.state]);
 
   function handleAdd(actions: Action[]) {
-    const newItems = actions.map(action => ({ id: newId(), action }));
+    const newItems = actions.map((action) => ({ id: newId(), action }));
     setActions((prev) => [...prev, ...newItems]);
   }
 
@@ -98,6 +102,7 @@ export function CreateMacroPage() {
       ignoreInjectedKeys: result.data.ignoreInjectedKeys,
       enabled: result.data.enabled,
       collectionId: result.data.collectionId,
+      toggleEnabledHotkey: result.data.toggleEnabledHotkey,
     };
     setSaving(true);
     try {
@@ -134,12 +139,16 @@ export function CreateMacroPage() {
                 {isEditing ? "Edit Macro" : "Configuration"}
               </h2>
               <p className="text-sm text-muted-foreground">
-                {isEditing 
-                  ? `Editing macro for ${config.triggerKey || "key"}` 
+                {isEditing
+                  ? `Editing macro for ${config.triggerKey || "key"}`
                   : "Set up how the macro triggers and behaves"}
               </p>
             </header>
-            <MacroForm values={config} onChange={setConfig} collections={collections} />
+            <MacroForm
+              values={config}
+              onChange={setConfig}
+              collections={collections}
+            />
           </section>
 
           <section className="grid grid-cols-1 lg:grid-cols-3 gap-6 min-h-[400px]">
@@ -162,7 +171,9 @@ export function CreateMacroPage() {
             <div className="flex flex-col">
               <header className="mb-3">
                 <h2 className="text-xl font-semibold">Add</h2>
-                <p className="text-sm text-muted-foreground">Insert a new action</p>
+                <p className="text-sm text-muted-foreground">
+                  Insert a new action
+                </p>
               </header>
               <div className="flex-1">
                 <AddActionForm onAdd={handleAdd} />
@@ -171,7 +182,11 @@ export function CreateMacroPage() {
           </section>
 
           <div className="flex justify-end">
-            <Button onClick={handleSave} disabled={!isValid || saving}>
+            <Button
+              className="transition-all duration-200 active:scale-95 cursor-pointer"
+              onClick={handleSave}
+              disabled={!isValid || saving}
+            >
               <Save className="size-4" />
               {saving ? "Saving..." : isEditing ? "Update Macro" : "Save Macro"}
             </Button>

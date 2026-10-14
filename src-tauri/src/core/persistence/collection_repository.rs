@@ -11,6 +11,7 @@ struct CollectionDocument {
     name: String,
     enabled: bool,
     order: i32,
+    toggle_enabled_hotkey: Option<String>,
 }
 
 impl From<Collection> for CollectionDocument {
@@ -20,6 +21,7 @@ impl From<Collection> for CollectionDocument {
             name: c.name,
             enabled: c.enabled,
             order: c.order,
+            toggle_enabled_hotkey: c.toggle_enabled_hotkey,
         }
     }
 }
@@ -31,6 +33,7 @@ impl From<CollectionDocument> for Collection {
             name: doc.name,
             enabled: doc.enabled,
             order: doc.order,
+            toggle_enabled_hotkey: doc.toggle_enabled_hotkey,
         }
     }
 }
@@ -170,6 +173,23 @@ impl CollectionRepository {
             format!("Failed to wipe collections: {}", e)
         })?;
         log::info!("Wiped all collections from PoloDB");
+        Ok(())
+    }
+
+    pub fn set_toggle_hotkey(&self, collection_id: &str, hotkey: Option<String>) -> Result<(), String> {
+        let collection = self.db.collection::<polodb_core::bson::Document>("collections");
+        let update = match &hotkey {
+            Some(key) => doc! { "$set": { "toggle_enabled_hotkey": key } },
+            None => doc! { "$unset": { "toggle_enabled_hotkey": "" } },
+        };
+        
+        collection
+            .update_one(doc! { "_id": collection_id }, update)
+            .map_err(|e| {
+                log::error!("Failed to set toggle hotkey for collection '{}': {}", collection_id, e);
+                format!("Failed to update toggle hotkey: {}", e)
+            })?;
+        log::info!("Collection '{}' toggle hotkey set to {:?}", collection_id, hotkey);
         Ok(())
     }
 }

@@ -9,6 +9,7 @@ interface CollectionViewResponse {
     enabled: boolean;
     macros_count: number;
     order: number;
+    toggle_enabled_hotkey: string | null;
 }
 
 // ── Conversion functions ────────────────────────────────────
@@ -20,6 +21,7 @@ function fromSnakeCase(response: CollectionViewResponse): CollectionView {
         enabled: response.enabled,
         macrosCount: response.macros_count,
         order: response.order,
+        toggleEnabledHotkey: response.toggle_enabled_hotkey,
     };
 }
 
@@ -33,7 +35,7 @@ export async function listCollections(): Promise<CollectionView[]> {
 export async function createCollection(name: string): Promise<Collection | null> {
     const id = await invoke<string | null>("create_collection", { name });
     if (!id) return null;
-    return { id, name, enabled: true, order: 0 };
+    return { id, name, enabled: true, order: 0, toggleEnabledHotkey: null };
 }
 
 export async function deleteCollection(collectionId: string): Promise<boolean> {
@@ -58,4 +60,8 @@ export async function reorderCollections(orderedIds: string[]): Promise<boolean>
 
 export async function moveMacroToCollection(triggerKey: string, collectionId: string | null): Promise<boolean> {
     return await invoke<boolean>("move_macro_to_collection", { triggerKey, collectionId });
+}
+
+export async function setCollectionToggleHotkey(collectionId: string, hotkey: string | null): Promise<boolean> {
+    return await invoke<boolean>("set_collection_toggle_hotkey", { collectionId, hotkey });
 }

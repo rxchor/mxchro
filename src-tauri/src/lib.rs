@@ -93,6 +93,16 @@ fn reorder_collections(ordered_ids: Vec<String>) -> bool {
 }
 
 #[tauri::command]
+fn set_macro_toggle_hotkey(trigger_key: String, hotkey: Option<String>) -> bool {
+    Commands::new(&MACRO_MANAGER).set_macro_toggle_hotkey(trigger_key, hotkey)
+}
+
+#[tauri::command]
+fn set_collection_toggle_hotkey(collection_id: String, hotkey: Option<String>) -> bool {
+    Commands::new(&MACRO_MANAGER).set_collection_toggle_hotkey(collection_id, hotkey)
+}
+
+#[tauri::command]
 fn move_macro_to_collection(trigger_key: String, collection_id: Option<String>) -> bool {
     Commands::new(&MACRO_MANAGER).move_macro_to_collection(trigger_key, collection_id)
 }
@@ -102,8 +112,6 @@ pub fn run() {
     dotenv::dotenv().ok();
     env_logger::init();
     log::info!("Starting mxchro application");
-
-    KeyboardHook::install(&MACRO_MANAGER);
 
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
@@ -124,8 +132,15 @@ pub fn run() {
             list_collections,
             rename_collection,
             reorder_collections,
+            set_macro_toggle_hotkey,
+            set_collection_toggle_hotkey,
             move_macro_to_collection,
         ])
+        .setup(|app| {
+            let app_handle = app.handle().clone();
+            KeyboardHook::install(&MACRO_MANAGER, app_handle);
+            Ok(())
+        })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

@@ -78,6 +78,14 @@ impl Commands {
         self.manager.reorder_collections(ordered_ids)
     }
 
+    pub fn set_macro_toggle_hotkey(&self, trigger_key: String, hotkey: Option<String>) -> bool {
+        self.manager.set_macro_toggle_hotkey(&trigger_key, hotkey)
+    }
+
+    pub fn set_collection_toggle_hotkey(&self, collection_id: String, hotkey: Option<String>) -> bool {
+        self.manager.set_collection_toggle_hotkey(&collection_id, hotkey)
+    }
+
     // ── Utility ─────────────────────────────────────────────
 
     pub fn wipe_data(&self) -> Result<(), String> {

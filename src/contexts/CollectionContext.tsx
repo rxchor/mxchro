@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from "react";
 import { type CollectionView } from "@/model/Collection";
 import { type MacroView } from "@/model/MacroView";
-import { listCollections, createCollection, deleteCollection, enableCollection, disableCollection, updateCollection, reorderCollections } from "@/services/CollectionService";
+import { listCollections, createCollection, deleteCollection, enableCollection, disableCollection, updateCollection, reorderCollections, setCollectionToggleHotkey } from "@/services/CollectionService";
 import { listMacros } from "@/services/MacroService";
 
 interface CollectionContextType {
@@ -15,6 +15,7 @@ interface CollectionContextType {
   handleToggleCollection: (id: string, enabled: boolean) => Promise<void>;
   handleRenameCollection: (id: string, name: string) => Promise<void>;
   handleReorderCollections: (orderedIds: string[]) => Promise<void>;
+  handleSetCollectionToggleHotkey: (id: string, hotkey: string | null) => Promise<void>;
   refreshData: () => Promise<void>;
 }
 
@@ -128,6 +129,17 @@ export function CollectionProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const handleSetCollectionToggleHotkey = async (id: string, hotkey: string | null) => {
+    try {
+      const success = await setCollectionToggleHotkey(id, hotkey);
+      if (success) {
+        await refreshData();
+      }
+    } catch (error) {
+      console.error("Error setting collection toggle hotkey:", error);
+    }
+  };
+
   return (
     <CollectionContext.Provider
       value={{
@@ -141,6 +153,7 @@ export function CollectionProvider({ children }: { children: ReactNode }) {
         handleToggleCollection,
         handleRenameCollection,
         handleReorderCollections,
+        handleSetCollectionToggleHotkey,
         refreshData,
       }}
     >

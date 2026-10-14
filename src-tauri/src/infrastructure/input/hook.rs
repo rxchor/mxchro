@@ -1,6 +1,7 @@
 use std::ptr::null_mut;
-use std::sync::Once;
+use std::sync::{Mutex, Once};
 
+use tauri::{AppHandle, Emitter};
 use windows::Win32::Foundation::{HINSTANCE, LPARAM, LRESULT, WPARAM};
 use windows::Win32::UI::WindowsAndMessaging::{
     CallNextHookEx, DispatchMessageW, GetMessageW, SetWindowsHookExW, TranslateMessage,
@@ -12,13 +13,19 @@ use crate::core::macro_manager::MacroManager;
 
 static HOOK_INIT: Once = Once::new();
 static mut MACRO_MANAGER: Option<&'static MacroManager> = None;
+static APP_HANDLE: Mutex<Option<AppHandle>> = Mutex::new(None);
 
 pub struct KeyboardHook;
 
 impl KeyboardHook {
-    pub fn install(manager: &'static MacroManager) {
+    pub fn install(manager: &'static MacroManager, app_handle: AppHandle) {
         unsafe {
             MACRO_MANAGER = Some(manager);
+        }
+        
+        // Store app handle for emitting events
+        if let Ok(mut handle) = APP_HANDLE.lock() {
+            *handle = Some(app_handle);
         }
 
         HOOK_INIT.call_once(|| {
@@ -64,6 +71,15 @@ impl KeyboardHook {
             if let Some(manager) = unsafe { MACRO_MANAGER } {
                 // Procesar todo en una sola operación para minimizar el tiempo con el lock
                 let action_info = manager.process_key_event(vk, is_key_down, is_key_up, is_injected);
+                
+                // Emit Tauri event if a toggle occurred
+                if let Some(toggle_event) = action_info.toggle_event {
+                    if let Ok(handle) = APP_HANDLE.lock() {
+                        if let Some(app_handle) = handle.as_ref() {
+                            let _ = app_handle.emit("toggle-event", toggle_event);
+                        }
+                    }
+                }
                 
                 if action_info.should_block {
                     log::debug!("Blocking key: vk={}", vk);

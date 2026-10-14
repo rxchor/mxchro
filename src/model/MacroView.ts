@@ -8,4 +8,5 @@ export interface MacroView {
     ignoreInjectedKeys: boolean;
     enabled: boolean;
     collectionId: string | null;
+    toggleEnabledHotkey: string | null;
 }

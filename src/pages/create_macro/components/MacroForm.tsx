@@ -22,6 +22,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
+import { KeyInput } from "@/components/KeyInput";
 import { getKeys, formattedKey } from "@/services/KeyListService";
 import { useEffect, useState } from "react";
 import { z } from "zod";
@@ -35,6 +36,7 @@ export const macroFormSchema = z.object({
   ignoreInjectedKeys: z.boolean(),
   enabled: z.boolean(),
   collectionId: z.string().nullable(),
+  toggleEnabledHotkey: z.string().nullable(),
 });
 
 export type MacroFormValues = z.infer<typeof macroFormSchema>;
@@ -145,6 +147,21 @@ export default function MacroForm({
         </Select>
         <p className="text-xs text-muted-foreground">
           Organize this macro into a collection
+        </p>
+      </div>
+
+      <Separator />
+
+      {/* Toggle Hotkey */}
+      <div className="flex flex-col gap-2">
+        <Label className="text-sm font-medium">Toggle Hotkey</Label>
+        <KeyInput
+          value={values.toggleEnabledHotkey}
+          onChange={(key) => update("toggleEnabledHotkey", key)}
+          placeholder="Press a key to toggle macro..."
+        />
+        <p className="text-xs text-muted-foreground">
+          Global hotkey to enable/disable this macro from anywhere
         </p>
       </div>
 
