@@ -10,9 +10,21 @@ Backend follows clean architecture with strict layer boundaries:
 
 ```
 src-tauri/src/
-├── core/              # Business logic, platform-agnostic
-├── infrastructure/    # Windows-specific (hooks, keyboard simulation)
+├── core/              
+│   ├── types.rs       # Domain types (Entity, View)
+│   ├── managers/      # Domain managers (business logic)
+│   │   ├── macro_manager.rs       # Macro lifecycle & events
+│   │   └── collection_manager.rs  # Collection management
+│   └── persistence/   # PoloDB persistence (Document)
+│       ├── macro_repository.rs
+│       └── collection_repository.rs
+├── infrastructure/    # Windows-specific (hooks, input simulation)
+│   └── input/
+│       ├── hook.rs
+│       ├── mapper.rs
+│       └── simulator.rs
 ├── adapters/          # Tauri ↔ core bridge
+│   └── commands.rs
 └── lib.rs            # Entry point, wiring
 ```
 
@@ -86,7 +98,7 @@ Macros can be edited via `update_macro` command. The system:
 
 ### Data Persistence
 
-Macros persist to an embedded PoloDB database (document-oriented, BSON format), configurable via `.env`:
+Macros and collections persist to an embedded PoloDB database (document-oriented, BSON format), configurable via `.env`:
 
 ```env
 # Development
@@ -96,25 +108,77 @@ MACROS_FILE_PATH=./macros.polodb
 %APPDATA%/mxchro/macros.polodb
 ```
 
-Implementation:
-- `core/persistence.rs`: Handles PoloDB operations (load_all/insert/delete/replace/set_enabled/wipe_data)
-- `trigger_key` used as document `_id` (natural unique key)
+**Repository Pattern**: Persistence is organized in two repositories:
+- `macro_repository.rs`: Handles macro CRUD operations (load_all/insert/delete/replace/set_enabled/set_toggle_hotkey/wipe_data)
+- `collection_repository.rs`: Handles collection CRUD operations (load_all/insert/delete/rename/reorder/set_enabled/set_toggle_hotkey/wipe_data)
+
+**Schema Versioning**: Automatic detection of schema changes with database reset:
+- `SCHEMA_VERSION` constant in `persistence/mod.rs`
+- Increments trigger automatic reset on app startup
+- `RESET_DB=true` environment variable for manual reset during development
+
+**Key Implementation Details**:
+- `trigger_key` used as document `_id` for macros (natural unique key)
+- `id` used as document `_id` for collections
 - Auto-load on startup via `MacroManager::new()`
 - Granular operations after CRUD (no full file rewrite)
 - `set_enabled` uses partial update with `$set` operator
 - `replace` uses delete + insert (trigger_key can change during edit)
-- `wipe_data` command available for clearing data during development
+
+### Collections
+
+Collections allow organizing macros into logical groups:
+
+**Entity**: `Collection { id, name, enabled, order, toggle_enabled_hotkey }`
+**View**: `CollectionView { id, name, enabled, macros_count, order, toggle_enabled_hotkey }`
+
+**Key Features**:
+- Bulk enable/disable all macros in a collection
+- Reorder collections (persisted order)
+- Rename collections
+- Move macros between collections
+- Each collection can have its own toggle hotkey
+
+**Manager**: `CollectionManager` handles collection logic, sharing state with `MacroManager` via `Arc<RwLock<>>`.
+
+### Toggle Hotkeys
+
+Global hotkeys to enable/disable macros and collections from anywhere:
+
+**Configuration**:
+- Each macro can have a `toggle_enabled_hotkey: Option<String>`
+- Each collection can have a `toggle_enabled_hotkey: Option<String>`
+- Configured via UI using `KeyInput` component
+
+**Implementation**:
+- `process_key_event()` detects toggle hotkeys before processing trigger keys
+- Toggle operations return `Option<bool>` (new state) or `None` (not found)
+- Backend emits Tauri events when toggle occurs
+- Frontend listens to `toggle-event` and auto-refreshes UI
+
+**Event Flow**:
+```
+Key pressed → Hook → process_key_event()
+  → If toggle hotkey: toggle enabled state
+  → Emit Tauri event with payload (target, enabled)
+  → Frontend listener → refreshData()
+  → UI updates automatically
+```
 
 ### Naming Conventions
 
 **Backend (Rust):**
-- **Entity**: Domain models in `core/types.rs` (e.g., `Macro`, `Action`, `Mode`)
-- **Document**: PoloDB wrapper in `persistence.rs` (e.g., `MacroDocument` with `_id` field)
-- **View**: Projections for UI in `core/types.rs` (e.g., `MacroView`)
+- **Entity**: Domain models in `core/types.rs` (e.g., `Macro`, `Action`, `Mode`, `Collection`)
+- **Document**: PoloDB wrapper in `persistence/` (e.g., `MacroDocument`, `CollectionDocument` with `_id` field)
+- **View**: Projections for UI in `core/types.rs` (e.g., `MacroView`, `CollectionView`)
+- **Manager**: Business logic in `core/managers/` (e.g., `MacroManager`, `CollectionManager`)
+- **Repository**: Data access in `core/persistence/` (e.g., `MacroRepository`, `CollectionRepository`)
 
 **Frontend (TypeScript):**
-- **Model**: Domain types in `src/model/` (e.g., `Macro`, `Action`, `Mode`, `MacroView`)
-- **Response**: API response types from backend in `src/services/` (e.g., `MacroResponse`, `MacroViewResponse`, `ActionResponse`)
+- **Model**: Domain types in `src/model/` (e.g., `Macro`, `Action`, `Mode`, `MacroView`, `Collection`, `CollectionView`)
+- **Response**: API response types from backend in `src/services/` (e.g., `MacroResponse`, `MacroViewResponse`, `ActionResponse`, `CollectionViewResponse`)
+- **Context**: Global state in `src/contexts/` (e.g., `CollectionContext`)
+- **Component**: Reusable UI in `src/components/` (e.g., `CollectionSidebar`, `KeyInput`)
 
 **Conversion Pattern:**
 - Backend uses `snake_case` for JSON serialization
@@ -136,6 +200,10 @@ Frontend: MacroView (camelCase model for UI)
 - **Icons in ActionsList**: Each action type has a distinct icon (ArrowDownToLine for Press, ArrowUpFromLine for Release, Timer for Wait)
 - **Full-element drag & drop**: Entire action card is draggable, not just the grip icon
 - **Batch action creation**: Adding a key creates both Press and Release actions together by default (configurable)
+- **Collection Sidebar**: Left sidebar showing collections with toggle hotkey configuration
+- **KeyInput Component**: Reusable component for capturing keyboard shortcuts
+- **Interactive Option Cards**: Clickable cards with hover and active animations for checkboxes and switches
+- **Visual Separators**: Clear visual separation between macro groups using borders and backgrounds
 
 ## Known Issues
 
@@ -167,8 +235,15 @@ Windows low-level keyboard hooks (`WH_KEYBOARD_LL`) don't capture events when th
 
 ## File Modifications Guide
 
-- **New macro features** → `core/macro_manager.rs` + `core/types.rs`
-- **New key types** → `infrastructure/keyboard/mapper.rs`
-- **Keyboard simulation changes** → `infrastructure/keyboard/simulator.rs`
+- **New macro features** → `core/managers/macro_manager.rs` + `core/types.rs`
+- **New collection features** → `core/managers/collection_manager.rs` + `core/types.rs`
+- **New key types** → `infrastructure/input/mapper.rs`
+- **Keyboard/mouse simulation changes** → `infrastructure/input/simulator.rs`
 - **New Tauri commands** → Add method to `MacroManager`, wrapper in `adapters/commands.rs`, register in `lib.rs`
-- **Frontend** → React/TypeScript in `src/`, shadcn/ui components, Tauri commands via `@tauri-apps/api/core`
+- **New persistence operations** → Add to appropriate repository in `core/persistence/`
+- **New UI components** → `src/components/`
+- **New pages** → `src/pages/`
+- **New models** → `src/model/`
+- **New services** → `src/services/`
+- **Frontend state changes** → `src/contexts/` or component state
+- **Tauri event handling** → Add listener in component, emit from `infrastructure/input/hook.rs`

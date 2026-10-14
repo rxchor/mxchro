@@ -8,6 +8,9 @@ Automatizador de macros de teclado para Windows que permite grabar, configurar y
 - **Hook de teclado global**: Captura teclas a nivel del sistema
 - **Simulación de teclado y ratón**: Ejecuta secuencias de teclas y clicks de ratón con timing preciso
 - **Soporte completo de ratón**: Botones izquierdo, derecho, central, X1 y X2
+- **Colecciones de macros**: Organiza macros en colecciones para mejor gestión
+- **Toggle hotkeys globales**: Activa/desactiva macros individuales o colecciones completas desde cualquier aplicación
+- **Sincronización en tiempo real**: La UI se actualiza automáticamente cuando cambias el estado con hotkeys (usando eventos de Tauri)
 - **Control de macros**: Activar/desactivar macros en tiempo real
 - **Bloqueo de teclas**: Opción de bloquear la tecla original
 - **Filtrado de teclas inyectadas**: Evita loops infinitos
@@ -20,8 +23,12 @@ El backend está diseñado con una arquitectura en capas para maximizar la porta
 src-tauri/src/
 ├── core/                          # Lógica de negocio pura
 │   ├── types.rs                   # Tipos de dominio (Entity, View)
-│   ├── persistence.rs             # Persistencia con PoloDB (Document)
-│   └── macro_manager.rs           # Servicio principal
+│   ├── managers/                  # Managers de dominio
+│   │   ├── macro_manager.rs       # Gestión de macros y eventos
+│   │   └── collection_manager.rs  # Gestión de colecciones
+│   └── persistence/               # Persistencia con PoloDB (Document)
+│       ├── macro_repository.rs
+│       └── collection_repository.rs
 ├── infrastructure/                # Implementaciones de plataforma
 │   └── input/
 │       ├── hook.rs                # Hook de Windows (WH_KEYBOARD_LL)
@@ -49,20 +56,47 @@ Define los tipos de dominio siguiendo las convenciones de arquitectura limpia:
 **Views (Proyecciones para UI):**
 - **`MacroView`**: Proyección parcial de una macro para listar (sin las acciones completas)
 
-#### `macro_manager.rs`
+#### `managers/macro_manager.rs`
 
 Servicio principal que gestiona el ciclo de vida de las macros:
 
 - **Gestión de macros**: Agregar, eliminar, activar, desactivar, listar
 - **Ejecución de macros**: Maneja los modos de activación (Once, Hold, Toggle)
 - **Control de threads**: Usa `Condvar` para threads eficientes que se duermen/despiertan
-- **Eventos de teclado**: `on_key_down()` y `on_key_up()` procesan eventos del hook
+- **Eventos de teclado**: `process_key_event()` procesa eventos del hook
+- **Toggle hotkeys**: Maneja hotkeys globales para activar/desactivar macros y colecciones
+- **Delegación**: Delega operaciones de colecciones a `CollectionManager`
 
 **Estructuras principales**:
 
 - **`MacroManager`**: Servicio público con toda la API
 - **`MacroInstance`**: Instancia interna de una macro con su estado de ejecución
 - **`RepeatState`**: Estado compartido para controlar threads de repetición (active, should_stop)
+- **`ToggleEvent`** y **`ToggleTarget`**: Eventos de toggle para sincronización con frontend
+
+#### `managers/collection_manager.rs`
+
+Gestiona la lógica de colecciones de macros:
+
+- **Gestión de colecciones**: Crear, eliminar, renombrar, reordenar
+- **Toggle masivo**: Activar/desactivar todas las macros de una colección
+- **Toggle hotkeys**: Hotkeys globales para controlar colecciones completas
+- **Estado compartido**: Usa `Arc<RwLock<>>` para compartir estado con `MacroManager`
+
+#### `types.rs`
+
+Define los tipos de dominio siguiendo las convenciones de arquitectura limpia:
+
+**Entities (Dominio puro):**
+- **`Mode`**: Enum con los modos de activación (Toggle, Hold, Once)
+- **`Action`**: Enum con las acciones posibles (Key o Wait)
+- **`Macro`**: Configuración completa de una macro
+- **`Collection`**: Grupo de macros con propiedades compartidas
+- **`ActionCallback`**: Alias de tipo para closures que ejecutan acciones
+
+**Views (Proyecciones para UI):**
+- **`MacroView`**: Proyección parcial de una macro para listar (sin las acciones completas)
+- **`CollectionView`**: Proyección de una colección con conteo de macros
 
 ### Capa Infrastructure (Plataforma)
 
@@ -122,13 +156,15 @@ Adaptador que expone la API del `MacroManager` como comandos de Tauri:
 
 ## Flujo de Ejecución
 
-1. **Inicio**: Se crea el `MacroManager` y se instala el hook de teclado
+1. **Inicio**: Se crean `MacroManager` y `CollectionManager`, se instalan el hook de teclado y el listener de eventos
 2. **Usuario crea macro**: Frontend envía `Macro` vía comando Tauri
 3. **MacroManager procesa**: Convierte strings a VK codes, construye acciones, spawnea thread si está enabled
-4. **Hook captura tecla**: Notifica al `MacroManager` con `on_key_down()`
-5. **MacroManager ejecuta**: Según el modo (Once/Hold/Toggle), ejecuta la acción o activa el thread de repetición
-6. **Thread de repetición**: Se despierta con `Condvar`, ejecuta acciones en loop, se duerme cuando se desactiva
-7. **Simulación**: `InputSimulator::key_down()` envía las teclas o clicks al sistema
+4. **Hook captura tecla**: Notifica al `MacroManager` con `process_key_event()`
+5. **Toggle hotkey detection**: Si la tecla es un toggle hotkey, se emite un evento de Tauri al frontend
+6. **MacroManager ejecuta**: Según el modo (Once/Hold/Toggle), ejecuta la acción o activa el thread de repetición
+7. **Thread de repetición**: Se despierta con `Condvar`, ejecuta acciones en loop, se duerme cuando se desactiva
+8. **Simulación**: `InputSimulator::key_down()` envía las teclas o clicks al sistema
+9. **Sincronización**: El frontend recibe el evento de Tauri y actualiza la UI automáticamente
 
 ## Portabilidad
 
@@ -148,26 +184,40 @@ src/
 │   ├── Macro.ts                   # Entity: Macro
 │   ├── Action.ts                  # Entity: Action
 │   ├── Mode.ts                    # Entity: Mode
-│   └── MacroView.ts               # View: MacroView
+│   ├── MacroView.ts               # View: MacroView
+│   ├── Collection.ts              # Entity: Collection
+│   └── CollectionView.ts          # View: CollectionView
 ├── services/                      # Servicios y API
-│   ├── MacroService.ts            # Conversión Response → Model
+│   ├── MacroService.ts            # Conversión Response → Model (macros)
+│   ├── CollectionService.ts       # Conversión Response → Model (colecciones)
 │   └── KeyListService.ts          # Mapeo de teclas
+├── contexts/                      # Contextos React
+│   └── CollectionContext.tsx       # Estado global de colecciones
 ├── components/                    # Componentes UI
 │   ├── ui/                        # Componentes shadcn/ui
+│   ├── CollectionSidebar.tsx      # Sidebar de colecciones
+│   ├── KeyInput.tsx               # Input para capturar teclas
 │   └── ...
 └── pages/                         # Páginas de la aplicación
     ├── home/
+    │   └── HomePage.tsx           # Vista principal con sidebar de colecciones
     └── create_macro/
+        └── CreateMacroPage.tsx    # Formulario de creación/edición
 ```
 
 **Convención de conversión:**
 ```
-Backend: Macro (snake_case en JSON)
+Backend: Macro/Collection (snake_case en JSON)
     ↓
-Frontend: MacroResponse (snake_case interface)
+Frontend: MacroResponse/CollectionViewResponse (snake_case interface)
     ↓ fromSnakeCase()
-Frontend: Macro (camelCase model para UI)
+Frontend: Macro/CollectionView (camelCase model para UI)
 ```
+
+**Sistema de eventos:**
+- Frontend escucha eventos de Tauri (`toggle-event`) para sincronización automática
+- Cuando se usa un toggle hotkey, el backend emite un evento que el frontend recibe
+- La UI se actualiza automáticamente sin necesidad de polling o refresh manual
 
 ## Tecnologías
 
@@ -180,6 +230,8 @@ Frontend: Macro (camelCase model para UI)
   - `indexmap`: Mapeo ordenado de teclas
   - `once_cell`: Singletons thread-safe
   - `serde`: Serialización para comunicación frontend-backend
+  - `tailwind-animations`: Plugin de animaciones para Tailwind CSS
+  - `uuid`: Generación de IDs únicos para colecciones
 
 ## Requisitos
 
@@ -230,6 +282,4 @@ pnpm tauri build
 
 **Nota**: La primera compilación tarda varios minutos porque RocksDB (el motor de almacenamiento de PoloDB) se compila desde source. Las siguientes compilaciones son rápidas.
 
-## Licencia
 
-MIT

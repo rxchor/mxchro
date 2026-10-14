@@ -1,3 +1,3 @@
 pub mod types;
-pub mod macro_manager;
+pub mod managers;
 pub mod persistence;

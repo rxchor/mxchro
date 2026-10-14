@@ -2398,7 +2398,6 @@ dependencies = [
  "env_logger",
  "indexmap 2.11.4",
  "log",
- "once_cell",
  "polodb_core",
  "serde",
  "serde_json",

@@ -30,6 +30,11 @@
 - **Persistencia JSON → PoloDB**: Migrado de archivo JSON a base de datos embebida PoloDB para mejor rendimiento y escalabilidad
 - **Convenciones de nomenclatura**: Establecidas convenciones claras para Entity (dominio), DTO (transferencia), Document (BD), View (proyección)
 - **Renombrado keyboard → input**: Refactorizado el módulo `keyboard` a `input` y `Keyboard` a `InputSimulator` para reflejar que soporta tanto teclado como ratón
+- **Separación de responsabilidades**: Refactorizado `macro_manager.rs` en dos módulos separados:
+  - `managers/macro_manager.rs`: Lógica de macros y procesamiento de eventos
+  - `managers/collection_manager.rs`: Lógica de colecciones
+  - Estado compartido mediante `Arc<RwLock<>>` entre ambos managers
+  - `MacroManager` delega operaciones de colecciones a `CollectionManager`
 
 ### Features
 - **Soporte para clicks de ratón**: Implementado soporte completo para botones de ratón (izquierdo, derecho, central, X1, X2) usando `INPUT_MOUSE` de Windows API

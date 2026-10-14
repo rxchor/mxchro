@@ -1,5 +1,4 @@
 use indexmap::IndexMap;
-use once_cell::sync::Lazy;
 use windows::Win32::UI::Input::KeyboardAndMouse::*;
 
 pub struct KeyMapper {
@@ -7,16 +6,9 @@ pub struct KeyMapper {
     vk_to_str: IndexMap<u16, String>,
 }
 
-static KEY_MAPPER: Lazy<KeyMapper> = Lazy::new(|| {
-    KeyMapper::build()
-});
-
 impl KeyMapper {
-    pub fn instance() -> &'static KeyMapper {
-        &KEY_MAPPER
-    }
 
-    fn build() -> KeyMapper {
+    pub fn new() -> KeyMapper {
         let mut key_mapper = KeyMapper {
             str_to_vk: IndexMap::new(),
             vk_to_str: IndexMap::new(),
@@ -133,7 +125,7 @@ mod tests {
 
     #[test]
     fn test_vk_to_string_basic_keys() {
-        let mapper = KeyMapper::instance();
+        let mapper = KeyMapper::new();
         assert_eq!(mapper.vk_to_string(&VK_A.0), Some("A"));
         assert_eq!(mapper.vk_to_string(&VK_0.0), Some("0"));
         assert_eq!(mapper.vk_to_string(&VK_RETURN.0), Some("enter"));
@@ -142,7 +134,7 @@ mod tests {
 
     #[test]
     fn test_string_to_vk_basic_keys() {
-        let mapper = KeyMapper::instance();
+        let mapper = KeyMapper::new();
         assert_eq!(mapper.string_to_vk("A"), Some(VK_A.0));
         assert_eq!(mapper.string_to_vk("0"), Some(VK_0.0));
         assert_eq!(mapper.string_to_vk("enter"), Some(VK_RETURN.0));
@@ -151,19 +143,19 @@ mod tests {
 
     #[test]
     fn test_vk_to_string_not_found() {
-        let mapper = KeyMapper::instance();
+        let mapper = KeyMapper::new();
         assert_eq!(mapper.vk_to_string(&9999), None);
     }
 
     #[test]
     fn test_string_to_vk_not_found() {
-        let mapper = KeyMapper::instance();
+        let mapper = KeyMapper::new();
         assert_eq!(mapper.string_to_vk("not_a_key"), None);
     }
 
     #[test]
     fn test_vk_to_string_and_back() {
-        let mapper = KeyMapper::instance();
+        let mapper = KeyMapper::new();
         let keys = vec!["A", "enter", "mouse_left", "F12", "numpad5"];
         for key in keys {
             let vk = mapper.string_to_vk(key).unwrap();
