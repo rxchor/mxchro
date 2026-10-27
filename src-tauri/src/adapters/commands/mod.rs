@@ -2,7 +2,7 @@ use std::sync::{Arc, LazyLock};
 
 use tauri::{command, AppHandle};
 
-use crate::{core::managers::Managers, infrastructure::input::hook::KeyboardHook};
+use crate::{core::managers::Managers, infrastructure::input::hook::Hook};
 
 pub mod collection_commands;
 pub mod macro_commands;
@@ -18,5 +18,5 @@ pub fn wipe_data() -> Result<(), String> {
 }
 
 pub fn install_hook(app_handle: AppHandle) {
-    KeyboardHook::install(Arc::clone(&MANAGERS.macro_manager), app_handle);
+    Hook::install(Arc::clone(&MANAGERS.macro_manager), app_handle);
 }

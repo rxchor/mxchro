@@ -45,7 +45,8 @@ impl KeyMapper {
         key_mapper.insert("clear".to_string(), VK_CLEAR.0);
         key_mapper.insert("enter".to_string(), VK_RETURN.0);
         key_mapper.insert("shift".to_string(), VK_SHIFT.0);
-        key_mapper.insert("ctrl".to_string(), VK_CONTROL.0);
+        key_mapper.insert("left_ctrl".to_string(), VK_LCONTROL.0);
+        key_mapper.insert("right_ctrl".to_string(), VK_RCONTROL.0);
         key_mapper.insert("alt".to_string(), VK_MENU.0);
         key_mapper.insert("pause".to_string(), VK_PAUSE.0);
         key_mapper.insert("capslock".to_string(), VK_CAPITAL.0);
