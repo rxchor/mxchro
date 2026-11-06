@@ -45,7 +45,7 @@ impl Managers {
 
         let macro_manager: Arc<MacroManager> = Arc::new(MacroManager::new(
             Arc::clone(&macros),
-            Arc::clone(&collections),
+            Arc::clone(&collection_manager),
             Arc::clone(&toggle_hotkeys),
             Arc::clone(&key_mapper),
             Arc::clone(&persistence),

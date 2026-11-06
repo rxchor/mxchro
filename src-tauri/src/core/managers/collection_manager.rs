@@ -293,6 +293,73 @@ impl CollectionManager {
         }
     }
 
+    /// Hace toggle del estado enabled de una colección y todas sus macros (llamado desde toggle hotkey)
+    /// Retorna el nuevo estado si se hizo toggle, None si no se encontró la colección
+    pub fn toggle_collection_enabled(&self, collection_id: &str) -> Option<bool> {
+        let mut collections = self.collections.write().unwrap();
+        if let Some(collection) = collections.get_mut(collection_id) {
+            let new_enabled = !collection.enabled;
+            collection.enabled = new_enabled;
+
+            drop(collections);
+
+            let mut macros = self.macros.write().unwrap();
+            for instance in macros.values_mut() {
+                if instance.collection_id.as_deref() == Some(collection_id) {
+                    if new_enabled {
+                        instance.enable();
+                    } else {
+                        instance.disable();
+                    }
+                    instance.enabled = new_enabled;
+                }
+            }
+
+            drop(macros);
+
+            if let Err(e) = self
+                .persistence
+                .collection_repo
+                .set_enabled(collection_id, new_enabled)
+            {
+                log::error!(
+                    "Failed to persist toggle for collection '{}': {}",
+                    collection_id,
+                    e
+                );
+            }
+
+            for instance in self.macros.read().unwrap().values() {
+                if instance.collection_id.as_deref() == Some(collection_id) {
+                    let trigger_key = self
+                        .key_mapper
+                        .vk_to_string(&instance.trigger_key)
+                        .unwrap_or_default();
+                    if let Err(e) = self
+                        .persistence
+                        .macro_repo
+                        .set_enabled(&trigger_key, new_enabled)
+                    {
+                        log::error!(
+                            "Failed to persist toggle for macro '{}': {}",
+                            trigger_key,
+                            e
+                        );
+                    }
+                }
+            }
+
+            log::info!(
+                "Collection '{}' toggled to enabled={}",
+                collection_id,
+                new_enabled
+            );
+            Some(new_enabled)
+        } else {
+            None
+        }
+    }
+
     fn load_collections(&self) {
         let collections = self.persistence.collection_repo.load_all();
         let mut coll_map = self.collections.write().unwrap();

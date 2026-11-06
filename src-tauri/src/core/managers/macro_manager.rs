@@ -3,6 +3,7 @@ use std::sync::{Arc, Condvar, Mutex, RwLock};
 use std::thread::JoinHandle;
 use std::time::Duration;
 
+use crate::core::managers::collection_manager::CollectionManager;
 use crate::core::persistence::Persistence;
 use crate::core::types::{Action, ActionCallback, Collection, Macro, MacroView, Mode};
 use crate::infrastructure::input::mapper::KeyMapper;
@@ -51,23 +52,24 @@ pub enum ToggleTarget {
 
 pub struct MacroManager {
     macros: Arc<RwLock<HashMap<u16, MacroInstance>>>,
-    collections: Arc<RwLock<HashMap<String, Collection>>>,
+    collection_manager: Arc<CollectionManager>,
     toggle_hotkeys: Arc<RwLock<HashMap<u16, ToggleTarget>>>,
     key_mapper: Arc<KeyMapper>,
     persistence: Arc<Persistence>,
+    
 }
 
 impl MacroManager {
     pub fn new(
         macros: Arc<RwLock<HashMap<u16, MacroInstance>>>,
-        collections: Arc<RwLock<HashMap<String, Collection>>>,
+        collection_manager: Arc<CollectionManager>,
         toggle_hotkeys: Arc<RwLock<HashMap<u16, ToggleTarget>>>,
         key_mapper: Arc<KeyMapper>,
         persistence: Arc<Persistence>,
     ) -> Self {
         let manager = MacroManager {
             macros,
-            collections,
+            collection_manager,
             toggle_hotkeys,
             key_mapper,
             persistence,
@@ -645,7 +647,7 @@ impl MacroManager {
                     ToggleTarget::Collection(collection_id) => {
                         let collection_id = collection_id.clone();
                         drop(toggle_hotkeys);
-                        if let Some(new_enabled) = self.toggle_collection_enabled(&collection_id) {
+                        if let Some(new_enabled) = self.collection_manager.toggle_collection_enabled(&collection_id) {
                             return KeyEventResult {
                                 should_block: true,
                                 toggle_event: Some(ToggleEvent {
@@ -771,73 +773,6 @@ impl MacroManager {
         KeyEventResult {
             should_block,
             toggle_event: None,
-        }
-    }
-
-    /// Hace toggle del estado enabled de una colección y todas sus macros (llamado desde toggle hotkey)
-    /// Retorna el nuevo estado si se hizo toggle, None si no se encontró la colección
-    fn toggle_collection_enabled(&self, collection_id: &str) -> Option<bool> {
-        let mut collections = self.collections.write().unwrap();
-        if let Some(collection) = collections.get_mut(collection_id) {
-            let new_enabled = !collection.enabled;
-            collection.enabled = new_enabled;
-
-            drop(collections);
-
-            let mut macros = self.macros.write().unwrap();
-            for instance in macros.values_mut() {
-                if instance.collection_id.as_deref() == Some(collection_id) {
-                    if new_enabled {
-                        instance.enable();
-                    } else {
-                        instance.disable();
-                    }
-                    instance.enabled = new_enabled;
-                }
-            }
-
-            drop(macros);
-
-            if let Err(e) = self
-                .persistence
-                .collection_repo
-                .set_enabled(collection_id, new_enabled)
-            {
-                log::error!(
-                    "Failed to persist toggle for collection '{}': {}",
-                    collection_id,
-                    e
-                );
-            }
-
-            for instance in self.macros.read().unwrap().values() {
-                if instance.collection_id.as_deref() == Some(collection_id) {
-                    let trigger_key = self
-                        .key_mapper
-                        .vk_to_string(&instance.trigger_key)
-                        .unwrap_or_default();
-                    if let Err(e) = self
-                        .persistence
-                        .macro_repo
-                        .set_enabled(&trigger_key, new_enabled)
-                    {
-                        log::error!(
-                            "Failed to persist toggle for macro '{}': {}",
-                            trigger_key,
-                            e
-                        );
-                    }
-                }
-            }
-
-            log::info!(
-                "Collection '{}' toggled to enabled={}",
-                collection_id,
-                new_enabled
-            );
-            Some(new_enabled)
-        } else {
-            None
         }
     }
 
