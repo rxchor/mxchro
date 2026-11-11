@@ -1,5 +1,5 @@
-use polodb_core::{CollectionT, Database};
 use polodb_core::bson::doc;
+use polodb_core::{CollectionT, Database};
 use serde::{Deserialize, Serialize};
 
 use crate::core::types::Collection;
@@ -60,9 +60,7 @@ impl CollectionRepository {
                     .map(Collection::from)
                     .collect();
                 // Sort by order, then by name for consistent ordering
-                collections.sort_by(|a, b| {
-                    a.order.cmp(&b.order).then_with(|| a.name.cmp(&b.name))
-                });
+                collections.sort_by(|a, b| a.order.cmp(&b.order).then_with(|| a.name.cmp(&b.name)));
                 log::info!("Loaded {} collections from PoloDB", collections.len());
                 collections
             }
@@ -86,45 +84,76 @@ impl CollectionRepository {
 
     pub fn delete(&self, collection_id: &str) -> Result<(), String> {
         let coll = self.collections_collection();
-        coll.delete_one(doc! { "_id": collection_id }).map_err(|e| {
-            log::error!("Failed to delete collection '{}': {}", collection_id, e);
-            format!("Failed to delete collection: {}", e)
-        })?;
-        
+        coll.delete_one(doc! { "_id": collection_id })
+            .map_err(|e| {
+                log::error!("Failed to delete collection '{}': {}", collection_id, e);
+                format!("Failed to delete collection: {}", e)
+            })?;
+
         // Desasociar todos los macros de esta colección
         let macros_coll = self.db.collection::<polodb_core::bson::Document>("macros");
-        macros_coll.update_many(
-            doc! { "collection_id": collection_id },
-            doc! { "$unset": { "collection_id": "" } },
-        ).map_err(|e| {
-            log::error!("Failed to disassociate macros from collection '{}': {}", collection_id, e);
-            format!("Failed to disassociate macros: {}", e)
-        })?;
-        
+        macros_coll
+            .update_many(
+                doc! { "collection_id": collection_id },
+                doc! { "$unset": { "collection_id": "" } },
+            )
+            .map_err(|e| {
+                log::error!(
+                    "Failed to disassociate macros from collection '{}': {}",
+                    collection_id,
+                    e
+                );
+                format!("Failed to disassociate macros: {}", e)
+            })?;
+
         log::info!("Deleted collection '{}' from PoloDB", collection_id);
         Ok(())
     }
 
     pub fn set_enabled(&self, collection_id: &str, enabled: bool) -> Result<(), String> {
-        let coll = self.db.collection::<polodb_core::bson::Document>("collections");
+        // Colección y macros deben sobrevivir al reinicio con el mismo estado.
+        // Una transacción evita guardar únicamente parte de la operación.
+        let transaction = self.db.start_transaction().map_err(|e| e.to_string())?;
+        let coll = transaction.collection::<polodb_core::bson::Document>("collections");
         coll.update_one(
             doc! { "_id": collection_id },
             doc! { "$set": { "enabled": enabled } },
-        ).map_err(|e| {
-            log::error!("Failed to set enabled={} for collection '{}': {}", enabled, collection_id, e);
+        )
+        .map_err(|e| {
+            log::error!(
+                "Failed to set enabled={} for collection '{}': {}",
+                enabled,
+                collection_id,
+                e
+            );
             format!("Failed to update collection: {}", e)
         })?;
+        transaction
+            .collection::<polodb_core::bson::Document>("macros")
+            .update_many(
+                doc! { "collection_id": collection_id },
+                doc! { "$set": { "enabled": enabled } },
+            )
+            .map_err(|e| format!("Failed to update collection macros: {}", e))?;
+        transaction.commit().map_err(|e| e.to_string())?;
         log::info!("Collection '{}' enabled={}", collection_id, enabled);
         Ok(())
     }
 
     pub fn update_name(&self, collection_id: &str, name: &str) -> Result<(), String> {
-        let coll = self.db.collection::<polodb_core::bson::Document>("collections");
+        let coll = self
+            .db
+            .collection::<polodb_core::bson::Document>("collections");
         coll.update_one(
             doc! { "_id": collection_id },
             doc! { "$set": { "name": name } },
-        ).map_err(|e| {
-            log::error!("Failed to update name for collection '{}': {}", collection_id, e);
+        )
+        .map_err(|e| {
+            log::error!(
+                "Failed to update name for collection '{}': {}",
+                collection_id,
+                e
+            );
             format!("Failed to update collection name: {}", e)
         })?;
         log::info!("Collection '{}' renamed to '{}'", collection_id, name);
@@ -132,19 +161,26 @@ impl CollectionRepository {
     }
 
     pub fn reorder(&self, ordered_ids: &[String]) -> Result<(), String> {
-        let coll = self.db.collection::<polodb_core::bson::Document>("collections");
-        
+        let coll = self
+            .db
+            .collection::<polodb_core::bson::Document>("collections");
+
         for (index, collection_id) in ordered_ids.iter().enumerate() {
             let order = index as i32;
             coll.update_one(
                 doc! { "_id": collection_id.as_str() },
                 doc! { "$set": { "order": order } },
-            ).map_err(|e| {
-                log::error!("Failed to update order for collection '{}': {}", collection_id, e);
+            )
+            .map_err(|e| {
+                log::error!(
+                    "Failed to update order for collection '{}': {}",
+                    collection_id,
+                    e
+                );
                 format!("Failed to reorder collection: {}", e)
             })?;
         }
-        
+
         log::info!("Reordered {} collections", ordered_ids.len());
         Ok(())
     }
@@ -152,13 +188,11 @@ impl CollectionRepository {
     pub fn get_max_order(&self) -> i32 {
         let collection = self.collections_collection();
         match collection.find(doc! {}).run() {
-            Ok(cursor) => {
-                cursor
-                    .filter_map(|r| r.ok())
-                    .map(|doc| doc.order)
-                    .max()
-                    .unwrap_or(-1)
-            }
+            Ok(cursor) => cursor
+                .filter_map(|r| r.ok())
+                .map(|doc| doc.order)
+                .max()
+                .unwrap_or(-1),
             Err(e) => {
                 log::error!("Failed to get max order: {}", e);
                 -1
@@ -176,20 +210,34 @@ impl CollectionRepository {
         Ok(())
     }
 
-    pub fn set_toggle_hotkey(&self, collection_id: &str, hotkey: Option<String>) -> Result<(), String> {
-        let collection = self.db.collection::<polodb_core::bson::Document>("collections");
+    pub fn set_toggle_hotkey(
+        &self,
+        collection_id: &str,
+        hotkey: Option<String>,
+    ) -> Result<(), String> {
+        let collection = self
+            .db
+            .collection::<polodb_core::bson::Document>("collections");
         let update = match &hotkey {
             Some(key) => doc! { "$set": { "toggle_enabled_hotkey": key } },
             None => doc! { "$unset": { "toggle_enabled_hotkey": "" } },
         };
-        
+
         collection
             .update_one(doc! { "_id": collection_id }, update)
             .map_err(|e| {
-                log::error!("Failed to set toggle hotkey for collection '{}': {}", collection_id, e);
+                log::error!(
+                    "Failed to set toggle hotkey for collection '{}': {}",
+                    collection_id,
+                    e
+                );
                 format!("Failed to update toggle hotkey: {}", e)
             })?;
-        log::info!("Collection '{}' toggle hotkey set to {:?}", collection_id, hotkey);
+        log::info!(
+            "Collection '{}' toggle hotkey set to {:?}",
+            collection_id,
+            hotkey
+        );
         Ok(())
     }
 }

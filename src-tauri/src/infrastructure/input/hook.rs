@@ -1,18 +1,25 @@
 use std::ptr::null_mut;
+use std::sync::mpsc::{sync_channel, SyncSender};
 use std::sync::{Arc, OnceLock};
 
 use tauri::{AppHandle, Emitter};
 use windows::Win32::Foundation::{HINSTANCE, LPARAM, LRESULT, WPARAM};
-use windows::Win32::UI::Input::KeyboardAndMouse::{VK_LBUTTON, VK_MBUTTON, VK_RBUTTON, VK_XBUTTON1, VK_XBUTTON2};
+use windows::Win32::UI::Input::KeyboardAndMouse::{
+    VK_LBUTTON, VK_MBUTTON, VK_RBUTTON, VK_XBUTTON1, VK_XBUTTON2,
+};
 use windows::Win32::UI::WindowsAndMessaging::{
-    CallNextHookEx, DispatchMessageW, GetMessageW, KBDLLHOOKSTRUCT, LLKHF_INJECTED, LLMHF_INJECTED, MSG, MSLLHOOKSTRUCT, SetWindowsHookExW, TranslateMessage, WH_KEYBOARD_LL, WH_MOUSE_LL, WM_KEYDOWN, WM_KEYUP, WM_LBUTTONDOWN, WM_LBUTTONUP, WM_MBUTTONDOWN, WM_MBUTTONUP, WM_MOUSEWHEEL, WM_RBUTTONDOWN, WM_RBUTTONUP, WM_SYSKEYDOWN, WM_SYSKEYUP, WM_XBUTTONDOWN, WM_XBUTTONUP,
+    CallNextHookEx, DispatchMessageW, GetMessageW, SetWindowsHookExW, TranslateMessage,
+    KBDLLHOOKSTRUCT, LLKHF_INJECTED, LLMHF_INJECTED, MSG, MSLLHOOKSTRUCT, WH_KEYBOARD_LL,
+    WH_MOUSE_LL, WM_KEYDOWN, WM_KEYUP, WM_LBUTTONDOWN, WM_LBUTTONUP, WM_MBUTTONDOWN, WM_MBUTTONUP,
+    WM_MOUSEWHEEL, WM_RBUTTONDOWN, WM_RBUTTONUP, WM_SYSKEYDOWN, WM_SYSKEYUP, WM_XBUTTONDOWN,
+    WM_XBUTTONUP,
 };
 
-use crate::core::managers::macro_manager::MacroManager;
+use crate::core::managers::macro_manager::{MacroManager, ToggleTarget};
 
 struct HookContext {
     manager: Arc<MacroManager>,
-    app_handle: AppHandle,
+    toggle_sender: SyncSender<ToggleTarget>,
 }
 
 static CONTEXT: OnceLock<HookContext> = OnceLock::new();
@@ -21,10 +28,11 @@ pub struct Hook;
 
 impl Hook {
     pub fn install(manager: Arc<MacroManager>, app_handle: AppHandle) {
+        let (toggle_sender, toggle_receiver) = sync_channel(64);
         if CONTEXT
             .set(HookContext {
-                manager,
-                app_handle,
+                manager: Arc::clone(&manager),
+                toggle_sender,
             })
             .is_err()
         {
@@ -32,7 +40,31 @@ impl Hook {
             return;
         }
 
+        // Un único worker ordenado: nunca crear hilos por pulsación ni esperar
+        // joins/escrituras desde los callbacks de Windows.
+        std::thread::spawn(move || {
+            while let Ok(target) = toggle_receiver.recv() {
+                if let Some(event) = manager.apply_toggle(target) {
+                    let _ = app_handle.emit("toggle-event", event);
+                }
+            }
+        });
         std::thread::spawn(Self::run_message_loop);
+    }
+
+    fn process_input(vk: u16, is_down: bool, is_up: bool, is_injected: bool) -> bool {
+        let Some(ctx) = CONTEXT.get() else {
+            return false;
+        };
+        let result = ctx
+            .manager
+            .process_key_event(vk, is_down, is_up, is_injected);
+        if let Some(target) = result.toggle_request {
+            if let Err(e) = ctx.toggle_sender.try_send(target) {
+                log::warn!("Couldn't enqueue toggle hotkey: {}", e);
+            }
+        }
+        result.should_block
     }
 
     fn run_message_loop() {
@@ -50,9 +82,9 @@ impl Hook {
             }
 
             let mouse_hook = SetWindowsHookExW(
-                WH_MOUSE_LL, 
-                Some(Self::mouse_hook_proc), 
-                Some(HINSTANCE(null_mut())), 
+                WH_MOUSE_LL,
+                Some(Self::mouse_hook_proc),
+                Some(HINSTANCE(null_mut())),
                 0,
             );
 
@@ -89,21 +121,9 @@ impl Hook {
                 is_injected
             );
 
-            if let Some(ctx) = CONTEXT.get() {
-                // Procesar todo en una sola operación para minimizar el tiempo con el lock
-                let action_info =
-                    ctx.manager
-                        .process_key_event(vk, is_key_down, is_key_up, is_injected);
-
-                // Emit Tauri event if a toggle occurred
-                if let Some(toggle_event) = action_info.toggle_event {
-                    let _ = ctx.app_handle.emit("toggle-event", toggle_event);
-                }
-
-                if action_info.should_block {
-                    log::debug!("Blocking key: vk={}", vk);
-                    return LRESULT(1);
-                }
+            if Self::process_input(vk, is_key_down, is_key_up, is_injected) {
+                log::debug!("Blocking key: vk={}", vk);
+                return LRESULT(1);
             }
         }
 
@@ -119,19 +139,23 @@ impl Hook {
             let ms = unsafe { *(l_param.0 as *const MSLLHOOKSTRUCT) };
             let msg = w_param.0 as u32;
             let is_injected = (ms.flags & LLMHF_INJECTED) != 0;
-            
+
             // Mapear mensaje -> (botón virtual, down/up)
             let (vk, is_down, is_up): (Option<u16>, bool, bool) = match msg {
                 WM_LBUTTONDOWN => (Some(VK_LBUTTON.0), true, false),
-                WM_LBUTTONUP   => (Some(VK_LBUTTON.0), false, true),
+                WM_LBUTTONUP => (Some(VK_LBUTTON.0), false, true),
                 WM_RBUTTONDOWN => (Some(VK_RBUTTON.0), true, false),
-                WM_RBUTTONUP   => (Some(VK_RBUTTON.0), false, true),
+                WM_RBUTTONUP => (Some(VK_RBUTTON.0), false, true),
                 WM_MBUTTONDOWN => (Some(VK_MBUTTON.0), true, false),
-                WM_MBUTTONUP   => (Some(VK_MBUTTON.0), false, true),
+                WM_MBUTTONUP => (Some(VK_MBUTTON.0), false, true),
                 WM_XBUTTONDOWN | WM_XBUTTONUP => {
                     // El botón X se indica en el HIWORD de mouseData
                     let xbtn = ((ms.mouseData >> 16) & 0xFFFF) as u16;
-                    let vk = if xbtn == 1 { VK_XBUTTON1.0 } else { VK_XBUTTON2.0 }; 
+                    let vk = if xbtn == 1 {
+                        VK_XBUTTON1.0
+                    } else {
+                        VK_XBUTTON2.0
+                    };
                     (Some(vk), msg == WM_XBUTTONDOWN, msg == WM_XBUTTONUP)
                 }
                 WM_MOUSEWHEEL => {
@@ -144,22 +168,18 @@ impl Hook {
 
             log::trace!(
                 "Mouse event: msg=0x{:X}, vk={:?}, down={}, up={}, injected={}, x={}, y={}",
-                msg, vk, is_down, is_up, is_injected, ms.pt.x, ms.pt.y
+                msg,
+                vk,
+                is_down,
+                is_up,
+                is_injected,
+                ms.pt.x,
+                ms.pt.y
             );
 
             if let Some(vk) = vk {
-                if let Some(ctx) = CONTEXT.get() {
-                    // Reutilizamos la misma lógica que el teclado
-                    let action_info =
-                        ctx.manager.process_key_event(vk, is_down, is_up, is_injected);
-
-                    if let Some(toggle_event) = action_info.toggle_event {
-                        let _ = ctx.app_handle.emit("toggle-event", toggle_event);
-                    }
-
-                    if action_info.should_block {
-                        return LRESULT(1);
-                    }
+                if Self::process_input(vk, is_down, is_up, is_injected) {
+                    return LRESULT(1);
                 }
             }
         }

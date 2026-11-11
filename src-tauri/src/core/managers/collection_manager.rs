@@ -60,7 +60,7 @@ impl CollectionManager {
 
     pub fn delete_collection(&self, collection_id: &str) -> bool {
         let mut collections = self.collections.write().unwrap();
-        if collections.remove(collection_id).is_none() {
+        if !collections.contains_key(collection_id) {
             log::warn!(
                 "delete_collection: collection '{}' not found",
                 collection_id
@@ -72,6 +72,10 @@ impl CollectionManager {
             log::error!("Failed to persist collection deletion: {}", e);
             return false;
         }
+        collections.remove(collection_id);
+        self.toggle_hotkeys.write().unwrap().retain(
+            |_, target| !matches!(target, ToggleTarget::Collection(id) if id == collection_id),
+        );
 
         // Desasociar macros de esta colección
         let mut macros = self.macros.write().unwrap();
@@ -86,77 +90,17 @@ impl CollectionManager {
     }
 
     pub fn enable_collection(&self, collection_id: &str) -> bool {
-        let collections = self.collections.read().unwrap();
-        if !collections.contains_key(collection_id) {
-            log::warn!(
-                "enable_collection: collection '{}' not found",
-                collection_id
-            );
-            return false;
-        }
-        drop(collections);
-
-        if let Err(e) = self
-            .persistence
-            .collection_repo
-            .set_enabled(collection_id, true)
-        {
-            log::error!("Failed to persist collection enable: {}", e);
-            return false;
-        }
-
-        // Habilitar todas las macros de la colección
-        let mut macros = self.macros.write().unwrap();
-        for instance in macros.values_mut() {
-            if instance.collection_id.as_deref() == Some(collection_id) {
-                instance.enable();
-            }
-        }
-
         let mut collections = self.collections.write().unwrap();
-        if let Some(collection) = collections.get_mut(collection_id) {
-            collection.enabled = true;
-        }
-
-        log::info!("Collection enabled: {}", collection_id);
-        true
+        collections
+            .get_mut(collection_id)
+            .is_some_and(|collection| self.set_collection_enabled(collection, true))
     }
 
     pub fn disable_collection(&self, collection_id: &str) -> bool {
-        let collections = self.collections.read().unwrap();
-        if !collections.contains_key(collection_id) {
-            log::warn!(
-                "disable_collection: collection '{}' not found",
-                collection_id
-            );
-            return false;
-        }
-        drop(collections);
-
-        if let Err(e) = self
-            .persistence
-            .collection_repo
-            .set_enabled(collection_id, false)
-        {
-            log::error!("Failed to persist collection disable: {}", e);
-            return false;
-        }
-
-        // Deshabilitar todas las macros de la colección
-        let mut macros = self.macros.write().unwrap();
-        for instance in macros.values_mut() {
-            if instance.collection_id.as_deref() == Some(collection_id) {
-                instance.disable();
-            }
-        }
-
         let mut collections = self.collections.write().unwrap();
-        if let Some(collection) = collections.get_mut(collection_id) {
-            collection.enabled = false;
-        }
-
-        log::info!("Collection disabled: {}", collection_id);
-        true
+        collections
+            .get_mut(collection_id)
+            .is_some_and(|collection| self.set_collection_enabled(collection, false))
     }
 
     pub fn list_collections(&self) -> Vec<CollectionView> {
@@ -297,67 +241,37 @@ impl CollectionManager {
     /// Retorna el nuevo estado si se hizo toggle, None si no se encontró la colección
     pub fn toggle_collection_enabled(&self, collection_id: &str) -> Option<bool> {
         let mut collections = self.collections.write().unwrap();
-        if let Some(collection) = collections.get_mut(collection_id) {
-            let new_enabled = !collection.enabled;
-            collection.enabled = new_enabled;
+        let collection = collections.get_mut(collection_id)?;
+        let enabled = !collection.enabled;
+        self.set_collection_enabled(collection, enabled)
+            .then_some(enabled)
+    }
 
-            drop(collections);
-
-            let mut macros = self.macros.write().unwrap();
-            for instance in macros.values_mut() {
-                if instance.collection_id.as_deref() == Some(collection_id) {
-                    if new_enabled {
-                        instance.enable();
-                    } else {
-                        instance.disable();
-                    }
-                    instance.enabled = new_enabled;
-                }
-            }
-
-            drop(macros);
-
-            if let Err(e) = self
-                .persistence
-                .collection_repo
-                .set_enabled(collection_id, new_enabled)
-            {
-                log::error!(
-                    "Failed to persist toggle for collection '{}': {}",
-                    collection_id,
-                    e
-                );
-            }
-
-            for instance in self.macros.read().unwrap().values() {
-                if instance.collection_id.as_deref() == Some(collection_id) {
-                    let trigger_key = self
-                        .key_mapper
-                        .vk_to_string(&instance.trigger_key)
-                        .unwrap_or_default();
-                    if let Err(e) = self
-                        .persistence
-                        .macro_repo
-                        .set_enabled(&trigger_key, new_enabled)
-                    {
-                        log::error!(
-                            "Failed to persist toggle for macro '{}': {}",
-                            trigger_key,
-                            e
-                        );
-                    }
-                }
-            }
-
-            log::info!(
-                "Collection '{}' toggled to enabled={}",
-                collection_id,
-                new_enabled
-            );
-            Some(new_enabled)
-        } else {
-            None
+    // El llamador mantiene collections bloqueado. Siempre adquirir collections
+    // antes de macros, también en list/delete, para evitar inversión de locks.
+    fn set_collection_enabled(&self, collection: &mut Collection, enabled: bool) -> bool {
+        let mut macros = self.macros.write().unwrap();
+        if let Err(e) = self
+            .persistence
+            .collection_repo
+            .set_enabled(&collection.id, enabled)
+        {
+            log::error!("Failed to persist collection state: {}", e);
+            return false;
         }
+
+        for instance in macros.values_mut() {
+            if instance.collection_id.as_deref() == Some(&collection.id) {
+                if enabled {
+                    instance.enable();
+                } else {
+                    instance.disable();
+                }
+            }
+        }
+        collection.enabled = enabled;
+        log::info!("Collection '{}' enabled={}", collection.id, enabled);
+        true
     }
 
     fn load_collections(&self) {
@@ -381,5 +295,9 @@ impl CollectionManager {
     pub fn clear_collections(&self) {
         let mut collections = self.collections.write().unwrap();
         collections.clear();
+        self.toggle_hotkeys
+            .write()
+            .unwrap()
+            .retain(|_, target| !matches!(target, ToggleTarget::Collection(_)));
     }
 }

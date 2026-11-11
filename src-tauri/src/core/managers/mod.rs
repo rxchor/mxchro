@@ -18,6 +18,10 @@ use crate::{
 pub mod collection_manager;
 pub mod macro_manager;
 
+#[cfg(test)]
+#[path = "../../../tests/unit/managers.rs"]
+mod tests;
+
 pub struct Managers {
     persistence: Arc<Persistence>,
     pub collection_manager: Arc<CollectionManager>,
