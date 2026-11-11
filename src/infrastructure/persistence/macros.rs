@@ -1,0 +1,215 @@
+use polodb_core::bson::doc;
+use polodb_core::{CollectionT, Database};
+use serde::{Deserialize, Serialize};
+
+use crate::domain::types::{Action, Macro, Mode};
+
+/// Stored macro representation. Uses trigger_key as _id.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct MacroDocument {
+    _id: String,
+    mode: Mode,
+    actions: Vec<Action>,
+    block_original_event: bool,
+    ignore_injected_keys: bool,
+    enabled: bool,
+    collection_id: Option<String>,
+    toggle_enabled_hotkey: Option<String>,
+}
+
+impl From<Macro> for MacroDocument {
+    fn from(m: Macro) -> Self {
+        MacroDocument {
+            _id: m.trigger_key,
+            mode: m.mode,
+            actions: m.actions,
+            block_original_event: m.block_original_event,
+            ignore_injected_keys: m.ignore_injected_keys,
+            enabled: m.enabled,
+            collection_id: m.collection_id,
+            toggle_enabled_hotkey: m.toggle_enabled_hotkey,
+        }
+    }
+}
+
+impl From<MacroDocument> for Macro {
+    fn from(doc: MacroDocument) -> Self {
+        Macro {
+            trigger_key: doc._id,
+            mode: doc.mode,
+            actions: doc.actions,
+            block_original_event: doc.block_original_event,
+            ignore_injected_keys: doc.ignore_injected_keys,
+            enabled: doc.enabled,
+            collection_id: doc.collection_id,
+            toggle_enabled_hotkey: doc.toggle_enabled_hotkey,
+        }
+    }
+}
+
+#[derive(Clone)]
+pub struct MacroRepository {
+    db: Database,
+}
+
+impl crate::application::ports::MacroRepository for MacroRepository {
+    fn load_all(&self) -> Vec<Macro> {
+        self.load_all()
+    }
+    fn insert(&self, value: &Macro) -> Result<(), String> {
+        self.insert(value)
+    }
+    fn delete(&self, key: &str) -> Result<(), String> {
+        self.delete(key)
+    }
+    fn set_enabled(&self, key: &str, enabled: bool) -> Result<(), String> {
+        self.set_enabled(key, enabled)
+    }
+    fn replace(&self, old_key: &str, value: &Macro) -> Result<(), String> {
+        self.replace(old_key, value)
+    }
+    fn wipe_data(&self) -> Result<(), String> {
+        self.wipe_data()
+    }
+    fn set_toggle_hotkey(&self, key: &str, hotkey: Option<String>) -> Result<(), String> {
+        self.set_toggle_hotkey(key, hotkey)
+    }
+}
+
+impl MacroRepository {
+    pub fn new(db: Database) -> Self {
+        MacroRepository { db }
+    }
+
+    fn macros_collection(&self) -> polodb_core::Collection<MacroDocument> {
+        self.db.collection::<MacroDocument>("macros")
+    }
+
+    pub fn load_all(&self) -> Vec<Macro> {
+        let collection = self.macros_collection();
+        match collection.find(doc! {}).run() {
+            Ok(cursor) => {
+                let macros: Vec<Macro> = cursor.filter_map(|r| r.ok()).map(Macro::from).collect();
+                log::info!("Loaded {} macros from PoloDB", macros.len());
+                macros
+            }
+            Err(e) => {
+                log::error!("Failed to load macros from PoloDB: {}", e);
+                Vec::new()
+            }
+        }
+    }
+
+    pub fn insert(&self, macro_entity: &Macro) -> Result<(), String> {
+        let collection = self.macros_collection();
+        let doc = MacroDocument::from(macro_entity.clone());
+        collection.insert_one(doc).map_err(|e| {
+            log::error!(
+                "Failed to insert macro '{}': {}",
+                macro_entity.trigger_key,
+                e
+            );
+            format!("Failed to insert: {}", e)
+        })?;
+        log::info!("Inserted macro '{}' into PoloDB", macro_entity.trigger_key);
+        Ok(())
+    }
+
+    pub fn delete(&self, trigger_key: &str) -> Result<(), String> {
+        let collection = self.macros_collection();
+        collection
+            .delete_one(doc! { "_id": trigger_key })
+            .map_err(|e| {
+                log::error!("Failed to delete macro '{}': {}", trigger_key, e);
+                format!("Failed to delete: {}", e)
+            })?;
+        log::info!("Deleted macro '{}' from PoloDB", trigger_key);
+        Ok(())
+    }
+
+    pub fn set_enabled(&self, trigger_key: &str, enabled: bool) -> Result<(), String> {
+        let collection = self.db.collection::<polodb_core::bson::Document>("macros");
+        collection
+            .update_one(
+                doc! { "_id": trigger_key },
+                doc! { "$set": { "enabled": enabled } },
+            )
+            .map_err(|e| {
+                log::error!(
+                    "Failed to set enabled={} for macro '{}': {}",
+                    enabled,
+                    trigger_key,
+                    e
+                );
+                format!("Failed to update: {}", e)
+            })?;
+        log::info!("Macro '{}' enabled={}", trigger_key, enabled);
+        Ok(())
+    }
+
+    /// Replace an entire macro (used when trigger_key may change).
+    pub fn replace(&self, old_trigger_key: &str, macro_entity: &Macro) -> Result<(), String> {
+        let collection = self.macros_collection();
+
+        // Delete the old macro.
+        collection
+            .delete_one(doc! { "_id": old_trigger_key })
+            .map_err(|e| {
+                log::error!("Failed to delete old macro '{}': {}", old_trigger_key, e);
+                format!("Failed to delete old: {}", e)
+            })?;
+
+        // Insert the new macro.
+        let doc = MacroDocument::from(macro_entity.clone());
+        collection.insert_one(doc).map_err(|e| {
+            log::error!(
+                "Failed to insert new macro '{}': {}",
+                macro_entity.trigger_key,
+                e
+            );
+            format!("Failed to insert new: {}", e)
+        })?;
+
+        log::info!(
+            "Replaced macro '{}' -> '{}'",
+            old_trigger_key,
+            macro_entity.trigger_key
+        );
+        Ok(())
+    }
+
+    pub fn wipe_data(&self) -> Result<(), String> {
+        let collection = self.macros_collection();
+        collection.delete_many(doc! {}).map_err(|e| {
+            log::error!("Failed to wipe macros from PoloDB: {}", e);
+            format!("Failed to wipe macros: {}", e)
+        })?;
+        log::info!("Wiped all macros from PoloDB");
+        Ok(())
+    }
+
+    pub fn set_toggle_hotkey(
+        &self,
+        trigger_key: &str,
+        hotkey: Option<String>,
+    ) -> Result<(), String> {
+        let collection = self.db.collection::<polodb_core::bson::Document>("macros");
+        let update = match &hotkey {
+            Some(key) => doc! { "$set": { "toggle_enabled_hotkey": key } },
+            None => doc! { "$unset": { "toggle_enabled_hotkey": "" } },
+        };
+
+        collection
+            .update_one(doc! { "_id": trigger_key }, update)
+            .map_err(|e| {
+                log::error!(
+                    "Failed to set toggle hotkey for macro '{}': {}",
+                    trigger_key,
+                    e
+                );
+                format!("Failed to update toggle hotkey: {}", e)
+            })?;
+        log::info!("Macro '{}' toggle hotkey set to {:?}", trigger_key, hotkey);
+        Ok(())
+    }
+}

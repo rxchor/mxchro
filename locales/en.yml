@@ -1,0 +1,168 @@
+experiment:
+  grid:
+    title: Grid layout experiment
+    help: Drag either list to compare. Both show the same temporary sequence; nothing is executed or saved.
+    current: Current virtualized list
+    candidate: GPUI-KIT grid (not virtualized)
+    current_help: Insert to reorder. Escape or dropping outside cancels. Automatic edge scrolling.
+    candidate_help: One column, fixed row height, no resize. Select a card to move it with the keyboard arrows.
+    both: Both lists
+    current_only: Current only
+    grid_only: Grid only
+    disabled: Disable editing
+    reset: Choose a count to reset the sample.
+    unchanged: No changes yet.
+    insertion: The last move preserved single-action insertion order.
+    different: 'Warning: the grid changed the order of other actions too.'
+    invalid: 'Warning: the grid returned an unexpected layout.'
+    caveat: 'Native grid behavior: releasing outside commits the preview; edge auto-scroll is not added in this experiment.'
+settings:
+  title: Settings
+  back: Back
+  description: Personalize the appearance of Mxchro. Changes apply immediately and are saved automatically.
+  theme: App theme
+  logo: App logo
+  monochrome: Monochrome
+  catppuccin: Catppuccin Mocha
+  catppuccin_logo: Catppuccin
+  rose_pine: Rosé Pine
+  follow_theme: Follow theme
+  logo_help: The app and Windows window icon follow this choice. The executable keeps the default Monochrome icon; pinned shortcuts may cache an older icon.
+  saving: Saving preferences…
+  autosave: Preferences are saved automatically.
+  unsaved: These preferences have not been saved. Changes currently apply only to this session.
+  retry: Save preferences again
+capture:
+  for_field: 'Capture a key or mouse button for %{field}'
+  listening: Press and release one key or mouse button. Escape cancels. Capture ends after 10 seconds or when this window loses focus. The captured input will not activate a macro.
+  unsupported: 'Unsupported key (VK %{vk}). The previous selection has been kept.'
+  unavailable: Input capture is unavailable. Check that both keyboard and mouse hooks are installed and this window is focused.
+  busy: Another input capture is already running.
+  timeout: Input capture timed out. The previous selection has been kept.
+common:
+  enabled: Enabled
+  disabled: Disabled
+  enable: Enable
+  disable: Disable
+  edit: Edit
+  delete: Delete
+  cancel: Cancel
+  remove: Remove
+  no_collection: No collection
+confirm:
+  macro_title: Delete macro?
+  macro_message: 'Delete the macro triggered by %{key}? This cannot be undone.'
+  collection_title: Delete collection?
+  collection_message: 'Delete the collection "%{name}"? Its macros will be kept without a collection.'
+sidebar:
+  all_macros: All macros
+  collections: COLLECTIONS
+  collection_name: Collection name
+  create_collection: Create collection
+collection:
+  name: Collection name
+  create: Create
+  save_name: Save name
+  hotkey: Enable/disable hotkey (optional)
+  hotkey_help: Changes are saved automatically. Clear the selection to remove the hotkey.
+  enable: Enable collection
+  disable: Disable collection
+  rename: Rename collection
+  delete: Delete collection
+home:
+  new_macro: New macro
+  empty: No macros here. Create one to get started; it will be saved disabled for safety.
+  loading: Loading the engine and database…
+  count:
+    one: '%{count} macro'
+    other: '%{count} macros'
+hotkey_summary:
+  assigned: 'Enable/disable: %{key}'
+  inactive: 'Enable/disable: %{key} (inactive)'
+macro:
+  action_count:
+    one: '%{count} action'
+    other: '%{count} actions'
+editor:
+  collection_hotkey_help: This macro belongs to a collection. Use the collection hotkey instead of an individual hotkey. Clear any previous individual hotkey before saving.
+  clear_hotkey: Clear individual hotkey
+  new: New macro
+  edit: Edit macro
+  trigger: Trigger key
+  mode: Mode
+  collection: Collection
+  hotkey: Enable/disable hotkey (optional)
+  mode_help: 'Once: run once · Hold: while the key is held · Toggle: until pressed again'
+  block_original: Block original key
+  ignore_injected: Ignore injected input
+  sequence: Action sequence
+  add_action: Add action
+  key_action: Key action
+  wait_action: Wait
+  action_key: Action key
+  pair: Press and release
+  press_only: Press only
+  release_only: Release only
+  key_both: Both
+  key_press: Press
+  key_release: Release
+  wait: Wait (ms)
+  milliseconds: Milliseconds
+  add_wait: Add wait
+  empty_actions: No actions yet. Add a key or a wait.
+  drag_action: Drag to reorder. Use the arrow buttons to move one step.
+  move_action_up: Move action up
+  move_action_down: Move action down
+  save: Save macro
+  saving: Saving…
+mode:
+  once: Once
+  hold: Hold
+  toggle: Toggle
+action:
+  press: PRESS
+  release: RELEASE
+  wait: WAIT
+  duration: '%{duration} ms'
+select:
+  unassigned: Not assigned
+  placeholder: Select an option
+  search: Search…
+  empty: No results
+notification:
+  macro_saved: Macro saved.
+  macro_deleted: Macro deleted.
+  collection_created: Collection created.
+  collection_renamed: Collection renamed.
+  collection_deleted: Collection deleted. Its macros have been kept without a collection.
+  collection_hotkey_saved: Collection hotkey updated.
+hotkey_issue:
+  title: Some toggle hotkeys are inactive
+  help: Your saved configuration has not been changed. Edit the affected macro or collection to clear or replace its hotkey. All conflicting assignments are inactive until resolved.
+  macro: 'Macro %{name}'
+  collection: 'Collection %{name}'
+  grouped: '%{owner}: %{key} is inactive because this macro belongs to a collection.'
+  duplicate: '%{owner}: %{key} is also assigned to another independent macro or collection.'
+  invalid: '%{owner}: %{key} is not a recognized key.'
+error:
+  grouped_macro_hotkey: A macro in a collection cannot have its own toggle hotkey. Clear the individual hotkey or remove the collection assignment.
+  hotkey_in_use: 'The toggle hotkey %{key} is already assigned to another independent macro or collection.'
+  window_icon: Could not update the Windows window icon. The previous icon has been kept; the appearance preferences still apply inside the app.
+  settings_read: Could not read appearance preferences. Defaults are active; the preferences file has not been changed.
+  settings_invalid: The appearance preferences file is invalid. Defaults are active; the file has not been changed.
+  settings_write: Could not save appearance preferences. You can keep using this appearance for this session and retry saving.
+  backend_stopped: The backend has stopped. Check the log and restart the application.
+  backend_unavailable: The backend is unavailable.
+  invalid_trigger: Select a valid trigger key from the dropdown.
+  empty_actions: Add at least one action.
+  invalid_hotkey: The global hotkey is invalid.
+  invalid_action_key: 'Invalid action key: %{key}'
+  zero_wait: Wait durations must be greater than zero.
+  missing_collection: The collection no longer exists.
+  missing_macro: The macro no longer exists.
+  collection_name: Enter a name for the collection.
+  empty_name: The name cannot be empty.
+  operation_failed: Could not complete the operation. Check whether the key is already in use and consult the log.
+  select_action_key: Select a key for the action.
+  positive_wait: The wait must be a positive number of milliseconds.
+  select_mode: Select a mode for the macro.

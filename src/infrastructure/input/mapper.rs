@@ -1,0 +1,164 @@
+use indexmap::IndexMap;
+use windows::Win32::UI::Input::KeyboardAndMouse::*;
+
+pub struct KeyMapper {
+    str_to_vk: IndexMap<String, u16>,
+    vk_to_str: IndexMap<u16, String>,
+}
+
+impl KeyMapper {
+    pub fn new() -> KeyMapper {
+        let mut key_mapper = KeyMapper {
+            str_to_vk: IndexMap::new(),
+            vk_to_str: IndexMap::new(),
+        };
+
+        // letters A-Z
+        for i in 0..26 {
+            let c = ((b'A' + i) as char).to_string();
+            key_mapper.insert(c.clone(), (0x41 + i) as u16);
+        }
+
+        // digits 0-9
+        for i in 0..=9 {
+            let key = i.to_string();
+            key_mapper.insert(key.clone(), (0x30 + i) as u16);
+        }
+
+        // Functions F1-F24
+        for i in 1..=24 {
+            let key = format!("F{}", i);
+            key_mapper.insert(key, (0x70 + (i - 1)) as u16);
+        }
+
+        // Mouse buttons
+        key_mapper.insert("mouse_left".to_string(), VK_LBUTTON.0);
+        key_mapper.insert("mouse_right".to_string(), VK_RBUTTON.0);
+        key_mapper.insert("mouse_middle".to_string(), VK_MBUTTON.0);
+        key_mapper.insert("mouse_x1".to_string(), VK_XBUTTON1.0);
+        key_mapper.insert("mouse_x2".to_string(), VK_XBUTTON2.0);
+
+        // Basic keys
+        key_mapper.insert("backspace".to_string(), VK_BACK.0);
+        key_mapper.insert("tab".to_string(), VK_TAB.0);
+        key_mapper.insert("clear".to_string(), VK_CLEAR.0);
+        key_mapper.insert("enter".to_string(), VK_RETURN.0);
+        key_mapper.insert("shift".to_string(), VK_SHIFT.0);
+        key_mapper.insert("left_shift".to_string(), VK_LSHIFT.0);
+        key_mapper.insert("right_shift".to_string(), VK_RSHIFT.0);
+        key_mapper.insert("left_ctrl".to_string(), VK_LCONTROL.0);
+        key_mapper.insert("right_ctrl".to_string(), VK_RCONTROL.0);
+        key_mapper.insert("alt".to_string(), VK_MENU.0);
+        key_mapper.insert("left_alt".to_string(), VK_LMENU.0);
+        key_mapper.insert("right_alt".to_string(), VK_RMENU.0);
+        key_mapper.insert("pause".to_string(), VK_PAUSE.0);
+        key_mapper.insert("capslock".to_string(), VK_CAPITAL.0);
+        key_mapper.insert("esc".to_string(), VK_ESCAPE.0);
+        key_mapper.insert("space".to_string(), VK_SPACE.0);
+
+        // Miscellaneous
+        key_mapper.insert(".".to_string(), VK_OEM_PERIOD.0);
+        key_mapper.insert(",".to_string(), VK_OEM_COMMA.0);
+        key_mapper.insert("-".to_string(), VK_OEM_MINUS.0);
+        key_mapper.insert("+".to_string(), VK_OEM_PLUS.0);
+
+        // Unknown keys ???
+        key_mapper.insert("OEM_1_(?)".to_string(), VK_OEM_1.0);
+        key_mapper.insert("OEM_102_(?)".to_string(), VK_OEM_102.0);
+        key_mapper.insert("OEM_2_(?)".to_string(), VK_OEM_2.0);
+        key_mapper.insert("OEM_3_(?)".to_string(), VK_OEM_3.0);
+        key_mapper.insert("OEM_4_(?)".to_string(), VK_OEM_4.0);
+        key_mapper.insert("OEM_5_(?)".to_string(), VK_OEM_5.0);
+        key_mapper.insert("OEM_6_(?)".to_string(), VK_OEM_6.0);
+        key_mapper.insert("OEM_7_(?)".to_string(), VK_OEM_7.0);
+        key_mapper.insert("OEM_8_(?)".to_string(), VK_OEM_8.0);
+        
+        
+        // Navigation
+        key_mapper.insert("page_up".to_string(), VK_PRIOR.0);
+        key_mapper.insert("page_down".to_string(), VK_NEXT.0);
+        key_mapper.insert("end".to_string(), VK_END.0);
+        key_mapper.insert("home".to_string(), VK_HOME.0);
+        key_mapper.insert("left".to_string(), VK_LEFT.0);
+        key_mapper.insert("up".to_string(), VK_UP.0);
+        key_mapper.insert("right".to_string(), VK_RIGHT.0);
+        key_mapper.insert("down".to_string(), VK_DOWN.0);
+        key_mapper.insert("insert".to_string(), VK_INSERT.0);
+        key_mapper.insert("delete".to_string(), VK_DELETE.0);
+
+        // Numpad
+        for i in 0..=9 {
+            let key = format!("numpad{}", i);
+            key_mapper.insert(key.clone(), (0x60 + i) as u16);
+        }
+        key_mapper.insert("numpad_mul".to_string(), VK_MULTIPLY.0);
+        key_mapper.insert("numpad_add".to_string(), VK_ADD.0);
+        key_mapper.insert("numpad_sep".to_string(), VK_SEPARATOR.0);
+        key_mapper.insert("numpad_sub".to_string(), VK_SUBTRACT.0);
+        key_mapper.insert("numpad_decimal".to_string(), VK_DECIMAL.0);
+        key_mapper.insert("numpad_div".to_string(), VK_DIVIDE.0);
+
+        // Special Keys
+        key_mapper.insert("win_left".to_string(), VK_LWIN.0);
+        key_mapper.insert("win_right".to_string(), VK_RWIN.0);
+        key_mapper.insert("apps".to_string(), VK_APPS.0);
+        key_mapper.insert("numlock".to_string(), VK_NUMLOCK.0);
+        key_mapper.insert("scrolllock".to_string(), VK_SCROLL.0);
+
+        // Media keys
+        key_mapper.insert("vol_mute".to_string(), VK_VOLUME_MUTE.0);
+        key_mapper.insert("vol_down".to_string(), VK_VOLUME_DOWN.0);
+        key_mapper.insert("vol_up".to_string(), VK_VOLUME_UP.0);
+        key_mapper.insert("media_next".to_string(), VK_MEDIA_NEXT_TRACK.0);
+        key_mapper.insert("media_prev".to_string(), VK_MEDIA_PREV_TRACK.0);
+        key_mapper.insert("'".to_string(), VK_OEM_7.0);
+
+        key_mapper
+    }
+
+    fn insert(&mut self, str: String, vk: u16) {
+        if !self.vk_to_str.contains_key(&vk) && !self.str_to_vk.contains_key(&str) {
+            self.vk_to_str.insert(vk, str.clone());
+            self.str_to_vk.insert(str, vk);
+        }
+    }
+
+    pub fn vk_to_string(&self, vk: &u16) -> Option<&str> {
+        self.vk_to_str.get(vk).map(|s| s.as_str())
+    }
+
+    pub fn string_to_vk(&self, string: &str) -> Option<u16> {
+        self.str_to_vk.get(string).copied()
+    }
+
+    pub fn strings_vec(&self) -> Vec<String> {
+        self.vk_to_str.values().map(|s| s.clone()).collect()
+    }
+
+    #[allow(dead_code)]
+    pub fn vk_vec(&self) -> Vec<u16> {
+        self.str_to_vk.values().copied().collect()
+    }
+}
+
+impl crate::application::ports::InputBackend for KeyMapper {
+    fn string_to_vk(&self, key: &str) -> Option<u16> {
+        self.string_to_vk(key)
+    }
+    fn vk_to_string(&self, vk: &u16) -> Option<&str> {
+        self.vk_to_string(vk)
+    }
+    fn strings_vec(&self) -> Vec<String> {
+        self.strings_vec()
+    }
+    fn key_down(&self, vk: u16) {
+        super::simulator::InputSimulator::key_down(vk);
+    }
+    fn key_up(&self, vk: u16) {
+        super::simulator::InputSimulator::key_up(vk);
+    }
+}
+
+#[cfg(test)]
+#[path = "../../../tests/unit/infrastructure/mapper.rs"]
+mod tests;

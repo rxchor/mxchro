@@ -1,0 +1,42 @@
+use serde::{Deserialize, Serialize};
+
+// ═══════════════════════════════════════════════════════════════
+// Domain entities and values. Serde derives preserve the existing persisted format.
+// ═══════════════════════════════════════════════════════════════
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum Mode {
+    Toggle,
+    Hold,
+    Once,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "type")]
+pub enum Action {
+    #[serde(rename = "key")]
+    Key { key: String, press: bool },
+    #[serde(rename = "wait")]
+    Wait { duration_ms: u64 },
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Macro {
+    pub trigger_key: String,
+    pub mode: Mode,
+    pub actions: Vec<Action>,
+    pub block_original_event: bool,
+    pub ignore_injected_keys: bool,
+    pub enabled: bool,
+    pub collection_id: Option<String>,
+    pub toggle_enabled_hotkey: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Collection {
+    pub id: String,
+    pub name: String,
+    pub enabled: bool,
+    pub order: i32,
+    pub toggle_enabled_hotkey: Option<String>,
+}

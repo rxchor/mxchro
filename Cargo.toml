@@ -1,0 +1,92 @@
+[package]
+name = "mxchro"
+version = "0.1.0"
+edition = "2024"
+
+[[example]]
+name = "scroll_profile"
+path = "tests/perf/scroll_profile.rs"
+
+[[example]]
+name = "collection_hotkey_ui"
+path = "tests/native/collection_hotkey_ui.rs"
+
+[[example]]
+name = "collection_name_ui"
+path = "tests/native/collection_name_ui.rs"
+
+[[example]]
+name = "sidebar_navigation_ui"
+path = "tests/native/sidebar_navigation_ui.rs"
+
+[[example]]
+name = "hotkey_rules_ui"
+path = "tests/native/hotkey_rules_ui.rs"
+
+[[example]]
+name = "input_capture_ui"
+path = "tests/native/input_capture_ui.rs"
+
+[[example]]
+name = "confirm_dialog_ui"
+path = "tests/native/confirm_dialog_ui.rs"
+
+[[example]]
+name = "toggle_feedback_ui"
+path = "tests/native/toggle_feedback_ui.rs"
+
+[[example]]
+name = "checkbox_ui"
+path = "tests/native/checkbox_ui.rs"
+
+[[example]]
+name = "notifications_ui"
+path = "tests/native/notifications_ui.rs"
+
+[[example]]
+name = "settings_ui"
+path = "tests/native/settings_ui.rs"
+
+[[example]]
+name = "grid_layout_ui"
+path = "tests/native/grid_layout_ui.rs"
+
+[package.metadata.packager]
+before-packaging-command = "cargo build --release"
+
+[package.metadata.packager.nsis]
+appdata-paths = ["$APPDATA/mxchro-native"]
+
+[dependencies]
+gpui-kit = "0.10.0"
+rust-i18n = "4.2.4"
+serde = { version = "1", features = ["derive"] }
+indexmap = "2.11.4"
+polodb_core = "5.3.0"
+uuid = { version = "=1.28.0", features = ["v4"] }
+log = "0.4"
+env_logger = "0.11"
+dotenvy = "0.15.7"
+toml = "0.8"
+raw-window-handle = "0.6"
+resvg = { version = "0.50.0", default-features = false }
+windows = { version = "0.62.1", features = [
+    "Win32_UI_Input_KeyboardAndMouse",
+    "Win32_UI_WindowsAndMessaging",
+    "Win32_UI_Accessibility",
+    "Win32_Foundation",
+    "Win32_Graphics_Gdi",
+    "Win32_System_Threading",
+    "Win32_UI_HiDpi",
+] }
+
+[build-dependencies]
+image = { version = "0.25", default-features = false, features = [
+    "ico",
+    "png",
+] }
+resvg = { version = "0.50.0", default-features = false }
+winresource = "0.1"
+
+[dev-dependencies]
+syn = { version = "3.0.10", features = ["full", "visit"] }

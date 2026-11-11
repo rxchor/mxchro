@@ -1,0 +1,274 @@
+use polodb_core::bson::doc;
+use polodb_core::{CollectionT, Database};
+use serde::{Deserialize, Serialize};
+
+use crate::domain::types::Collection;
+
+/// Stored collection representation. Uses id as _id.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct CollectionDocument {
+    _id: String,
+    name: String,
+    enabled: bool,
+    order: i32,
+    toggle_enabled_hotkey: Option<String>,
+}
+
+impl From<Collection> for CollectionDocument {
+    fn from(c: Collection) -> Self {
+        CollectionDocument {
+            _id: c.id,
+            name: c.name,
+            enabled: c.enabled,
+            order: c.order,
+            toggle_enabled_hotkey: c.toggle_enabled_hotkey,
+        }
+    }
+}
+
+impl From<CollectionDocument> for Collection {
+    fn from(doc: CollectionDocument) -> Self {
+        Collection {
+            id: doc._id,
+            name: doc.name,
+            enabled: doc.enabled,
+            order: doc.order,
+            toggle_enabled_hotkey: doc.toggle_enabled_hotkey,
+        }
+    }
+}
+
+#[derive(Clone)]
+pub struct CollectionRepository {
+    db: Database,
+}
+
+impl crate::application::ports::CollectionRepository for CollectionRepository {
+    fn load_all(&self) -> Vec<Collection> {
+        self.load_all()
+    }
+    fn insert(&self, value: &Collection) -> Result<(), String> {
+        self.insert(value)
+    }
+    fn delete(&self, id: &str) -> Result<(), String> {
+        self.delete(id)
+    }
+    fn set_enabled_with_macros(&self, id: &str, enabled: bool) -> Result<(), String> {
+        self.set_enabled(id, enabled)
+    }
+    fn update_name(&self, id: &str, name: &str) -> Result<(), String> {
+        self.update_name(id, name)
+    }
+    fn reorder(&self, ids: &[String]) -> Result<(), String> {
+        self.reorder(ids)
+    }
+    fn get_max_order(&self) -> i32 {
+        self.get_max_order()
+    }
+    fn wipe_data(&self) -> Result<(), String> {
+        self.wipe_data()
+    }
+    fn set_toggle_hotkey(&self, id: &str, hotkey: Option<String>) -> Result<(), String> {
+        self.set_toggle_hotkey(id, hotkey)
+    }
+}
+
+impl CollectionRepository {
+    pub fn new(db: Database) -> Self {
+        CollectionRepository { db }
+    }
+
+    fn collections_collection(&self) -> polodb_core::Collection<CollectionDocument> {
+        self.db.collection::<CollectionDocument>("collections")
+    }
+
+    pub fn load_all(&self) -> Vec<Collection> {
+        let collection = self.collections_collection();
+        match collection.find(doc! {}).run() {
+            Ok(cursor) => {
+                let mut collections: Vec<Collection> = cursor
+                    .filter_map(|r| r.ok())
+                    .map(Collection::from)
+                    .collect();
+                // Sort by order, then by name for consistent ordering
+                collections.sort_by(|a, b| a.order.cmp(&b.order).then_with(|| a.name.cmp(&b.name)));
+                log::info!("Loaded {} collections from PoloDB", collections.len());
+                collections
+            }
+            Err(e) => {
+                log::error!("Failed to load collections from PoloDB: {}", e);
+                Vec::new()
+            }
+        }
+    }
+
+    pub fn insert(&self, collection: &Collection) -> Result<(), String> {
+        let coll = self.collections_collection();
+        let doc = CollectionDocument::from(collection.clone());
+        coll.insert_one(doc).map_err(|e| {
+            log::error!("Failed to insert collection '{}': {}", collection.id, e);
+            format!("Failed to insert collection: {}", e)
+        })?;
+        log::info!("Inserted collection '{}' into PoloDB", collection.id);
+        Ok(())
+    }
+
+    pub fn delete(&self, collection_id: &str) -> Result<(), String> {
+        let coll = self.collections_collection();
+        coll.delete_one(doc! { "_id": collection_id })
+            .map_err(|e| {
+                log::error!("Failed to delete collection '{}': {}", collection_id, e);
+                format!("Failed to delete collection: {}", e)
+            })?;
+
+        // Detach all macros from this collection.
+        let macros_coll = self.db.collection::<polodb_core::bson::Document>("macros");
+        macros_coll
+            .update_many(
+                doc! { "collection_id": collection_id },
+                doc! { "$unset": { "collection_id": "" } },
+            )
+            .map_err(|e| {
+                log::error!(
+                    "Failed to disassociate macros from collection '{}': {}",
+                    collection_id,
+                    e
+                );
+                format!("Failed to disassociate macros: {}", e)
+            })?;
+
+        log::info!("Deleted collection '{}' from PoloDB", collection_id);
+        Ok(())
+    }
+
+    pub fn set_enabled(&self, collection_id: &str, enabled: bool) -> Result<(), String> {
+        // Collection and macro states must remain consistent across restarts.
+        // A transaction prevents persisting only part of the operation.
+        let transaction = self.db.start_transaction().map_err(|e| e.to_string())?;
+        let coll = transaction.collection::<polodb_core::bson::Document>("collections");
+        coll.update_one(
+            doc! { "_id": collection_id },
+            doc! { "$set": { "enabled": enabled } },
+        )
+        .map_err(|e| {
+            log::error!(
+                "Failed to set enabled={} for collection '{}': {}",
+                enabled,
+                collection_id,
+                e
+            );
+            format!("Failed to update collection: {}", e)
+        })?;
+        transaction
+            .collection::<polodb_core::bson::Document>("macros")
+            .update_many(
+                doc! { "collection_id": collection_id },
+                doc! { "$set": { "enabled": enabled } },
+            )
+            .map_err(|e| format!("Failed to update collection macros: {}", e))?;
+        transaction.commit().map_err(|e| e.to_string())?;
+        log::info!("Collection '{}' enabled={}", collection_id, enabled);
+        Ok(())
+    }
+
+    pub fn update_name(&self, collection_id: &str, name: &str) -> Result<(), String> {
+        let coll = self
+            .db
+            .collection::<polodb_core::bson::Document>("collections");
+        coll.update_one(
+            doc! { "_id": collection_id },
+            doc! { "$set": { "name": name } },
+        )
+        .map_err(|e| {
+            log::error!(
+                "Failed to update name for collection '{}': {}",
+                collection_id,
+                e
+            );
+            format!("Failed to update collection name: {}", e)
+        })?;
+        log::info!("Collection '{}' renamed to '{}'", collection_id, name);
+        Ok(())
+    }
+
+    pub fn reorder(&self, ordered_ids: &[String]) -> Result<(), String> {
+        let coll = self
+            .db
+            .collection::<polodb_core::bson::Document>("collections");
+
+        for (index, collection_id) in ordered_ids.iter().enumerate() {
+            let order = index as i32;
+            coll.update_one(
+                doc! { "_id": collection_id.as_str() },
+                doc! { "$set": { "order": order } },
+            )
+            .map_err(|e| {
+                log::error!(
+                    "Failed to update order for collection '{}': {}",
+                    collection_id,
+                    e
+                );
+                format!("Failed to reorder collection: {}", e)
+            })?;
+        }
+
+        log::info!("Reordered {} collections", ordered_ids.len());
+        Ok(())
+    }
+
+    pub fn get_max_order(&self) -> i32 {
+        let collection = self.collections_collection();
+        match collection.find(doc! {}).run() {
+            Ok(cursor) => cursor
+                .filter_map(|r| r.ok())
+                .map(|doc| doc.order)
+                .max()
+                .unwrap_or(-1),
+            Err(e) => {
+                log::error!("Failed to get max order: {}", e);
+                -1
+            }
+        }
+    }
+
+    pub fn wipe_data(&self) -> Result<(), String> {
+        let collection = self.collections_collection();
+        collection.delete_many(doc! {}).map_err(|e| {
+            log::error!("Failed to wipe collections from PoloDB: {}", e);
+            format!("Failed to wipe collections: {}", e)
+        })?;
+        log::info!("Wiped all collections from PoloDB");
+        Ok(())
+    }
+
+    pub fn set_toggle_hotkey(
+        &self,
+        collection_id: &str,
+        hotkey: Option<String>,
+    ) -> Result<(), String> {
+        let collection = self
+            .db
+            .collection::<polodb_core::bson::Document>("collections");
+        let update = match &hotkey {
+            Some(key) => doc! { "$set": { "toggle_enabled_hotkey": key } },
+            None => doc! { "$unset": { "toggle_enabled_hotkey": "" } },
+        };
+
+        collection
+            .update_one(doc! { "_id": collection_id }, update)
+            .map_err(|e| {
+                log::error!(
+                    "Failed to set toggle hotkey for collection '{}': {}",
+                    collection_id,
+                    e
+                );
+                format!("Failed to update toggle hotkey: {}", e)
+            })?;
+        log::info!(
+            "Collection '{}' toggle hotkey set to {:?}",
+            collection_id,
+            hotkey
+        );
+        Ok(())
+    }
+}

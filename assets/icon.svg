@@ -1,0 +1,26 @@
+<svg
+    width="256"
+    height="256"
+    viewBox="0 0 256 256"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+>
+  <!-- Fondo-->
+  <rect x="16" y="16" width="224" height="224" rx="56" fill="#1C1C1C" />
+
+  <!-- M -->
+  <path
+        d="M64 188V68
+       H86L128 123L170 68H192V188H168V110L133 160H123L88 110V188H64Z"
+        fill="#F5F5F5"
+    />
+
+  <!-- X -->
+  <path
+        d="M104 92L152 164
+       M152 92L104 164"
+        stroke="#A3A3A3"
+        stroke-width="12"
+        stroke-linecap="round"
+    />
+</svg>

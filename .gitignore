@@ -1,0 +1,4 @@
+/target
+.env
+*.polodb*
+AGENTS.md
